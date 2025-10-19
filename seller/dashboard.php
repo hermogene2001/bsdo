@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     $stmt = $pdo->prepare("INSERT INTO products (seller_id, name, description, price, stock, category_id, image_url, image_gallery, address, city, state, country, postal_code, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
                     $stmt->execute([$seller_id, $name, $description, $price, $stock, $category_id, $image_url, $image_gallery, $address, $city, $state, $country, $postal_code]);
-                    $success_message = "Product added successfully! Waiting for admin approval.";
+                    $success_message = "Product added successfully! Please make payment for verification. of 0.5% of your price";
                     logSellerActivity("Added new product: $name");
                 } catch (Exception $e) {
                     $error_message = "Failed to add product: " . $e->getMessage();
@@ -325,7 +325,7 @@ case 'add_rental_product':
             $address, $city, $state, $country, $postal_code
         ]);
         
-        $success_message = "Rental product added successfully! Waiting for admin approval.";
+        $success_message = "Rental Product added successfully! Please make payment for verification. of 0.5% of your price";
     } catch (Exception $e) {
         $error_message = "Failed to add rental product: " . $e->getMessage();
     }
