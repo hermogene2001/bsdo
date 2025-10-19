@@ -329,269 +329,49 @@ $inquiries = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
 
-    <!-- Chat Modal -->
-    <div class="modal fade chat-modal" id="chatModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="chat-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="modal-title mb-1" id="chatProductName"></h5>
-                            <small id="chatSellerName"></small>
-                        </div>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
+    <footer class="bg-dark text-white py-5 mt-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <h5 class="mb-4"><i class="fas fa-shopping-bag me-2"></i>BSDO SALE</h5>
+                    <p>Your trusted e-commerce platform with live streaming, real-time inquiries, and rental products.</p>
                 </div>
-                
-                <div class="chat-messages" id="chatMessages">
-                    <!-- Messages will be loaded here -->
+                <div class="col-lg-2 col-md-4 mb-4">
+                    <h5 class="mb-4">Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><a href="index.php" class="text-decoration-none text-light">Home</a></li>
+                        <li class="mb-2"><a href="products.php" class="text-decoration-none text-light">Products</a></li>
+                        <li class="mb-2"><a href="live_streams.php" class="text-decoration-none text-light">Live Streams</a></li>
+                    </ul>
                 </div>
-                
-                <div class="chat-input">
-                    <form id="messageForm">
-                        <input type="hidden" id="currentInquiryId">
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="messageInput" 
-                                   placeholder="Type your message..." required>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                <div class="col-lg-3 col-md-4 mb-4">
+                    <h5 class="mb-4">Features</h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-comments me-2 text-primary"></i>Real-time Inquiries</li>
+                        <li class="mb-2"><i class="fas fa-video me-2 text-danger"></i>Live Shopping</li>
+                        <li class="mb-2"><i class="fas fa-shopping-bag me-2 text-info"></i>Buy Products</li>
+                        <li class="mb-2"><i class="fas fa-calendar-alt me-2 text-warning"></i>Rent Products</li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-md-4 mb-4">
+                    <h5 class="mb-4">Newsletter</h5>
+                    <p>Subscribe for updates on new products and live streams</p>
+                    <form>
+                        <div class="input-group mb-3">
+                            <input type="email" class="form-control" placeholder="Your email">
+                            <button class="btn btn-primary" type="button">Subscribe</button>
                         </div>
                     </form>
                 </div>
             </div>
+            <hr class="my-4">
+            <div class="text-center">
+                <p>&copy; 2024 BSDO Sale. All rights reserved. | Developed by <a href="mailto:Hermogene2001@gmail.com" class="text-decoration-none text-light">HermogenesTech</a></p>
+            </div>
         </div>
-    </div>
+    </footer>
 
-    <!-- Scripts -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-    
-    <script>
-        $(document).ready(function() {
-            let currentInquiryId = null;
-            let checkInterval = null;
-            
-            // Initialize toastr
-            toastr.options = {
-                "closeButton": true,
-                "progressBar": true,
-                "positionClass": "toast-top-right",
-                "timeOut": 5000
-            };
-            
-            // Calculate total unread messages
-            function updateTotalUnread() {
-                let totalUnread = 0;
-                $('.unread-badge').each(function() {
-                    totalUnread += parseInt($(this).text());
-                });
-                $('#totalUnread').text(totalUnread + ' unread');
-                
-                // Show/hide notification bell
-                if (totalUnread > 0) {
-                    $('#notificationBell').show();
-                } else {
-                    $('#notificationBell').hide();
-                }
-            }
-            
-            // Initialize total unread count
-            updateTotalUnread();
-            
-            // Open chat modal
-            $('.open-chat').on('click', function() {
-                const inquiryId = $(this).data('inquiry-id');
-                const productName = $(this).data('product-name');
-                const sellerName = $(this).data('seller-name');
-                
-                openChat(inquiryId, productName, sellerName);
-            });
-            
-            // Function to open chat
-            function openChat(inquiryId, productName, sellerName) {
-                currentInquiryId = inquiryId;
-                
-                $('#chatProductName').text(productName);
-                $('#chatSellerName').text('Seller: ' + sellerName);
-                $('#currentInquiryId').val(inquiryId);
-                
-                loadMessages(inquiryId);
-                
-                const chatModal = new bootstrap.Modal(document.getElementById('chatModal'));
-                chatModal.show();
-                
-                // Mark messages as read when opening chat
-                markMessagesAsRead(inquiryId);
-                
-                // Start checking for new messages
-                startCheckingMessages();
-            }
-            
-            // Load messages for an inquiry
-            function loadMessages(inquiryId) {
-                $.ajax({
-                    url: 'get_inquiry_messages.php',
-                    type: 'GET',
-                    data: { inquiry_id: inquiryId },
-                    success: function(response) {
-                        $('#chatMessages').html(response);
-                        scrollToBottom();
-                    },
-                    error: function() {
-                        toastr.error('Failed to load messages');
-                    }
-                });
-            }
-            
-            // Send message
-            $('#messageForm').on('submit', function(e) {
-                e.preventDefault();
-                
-                const inquiryId = $('#currentInquiryId').val();
-                const message = $('#messageInput').val().trim();
-                
-                if (message === '') return;
-                
-                $.ajax({
-                    url: 'send_message.php',
-                    type: 'POST',
-                    dataType: 'json',
-                    data: {
-                        inquiry_id: inquiryId,
-                        message: message
-                    },
-                    success: function(response) {
-                        if (response && response.success) {
-                            $('#messageInput').val('');
-                            loadMessages(inquiryId);
-                        } else {
-                            toastr.error(response.message || 'Failed to send message');
-                        }
-                    },
-                    error: function() {
-                        toastr.error('Failed to send message');
-                    }
-                });
-            });
-            
-            // Check for new messages
-            function checkForNewMessages() {
-                if (!currentInquiryId) return;
-                
-                $.ajax({
-                    url: 'check_inquiry_updates.php',
-                    type: 'GET',
-                    dataType: 'json',
-                    data: { inquiry_id: currentInquiryId },
-                    success: function(response) {
-                        if (response && response.has_new_messages) {
-                            loadMessages(currentInquiryId);
-                        }
-                    }
-                });
-            }
-            
-            // Check for new inquiries globally
-            function checkForNewInquiries() {
-                $.ajax({
-                    url: 'check_new_inquiries.php',
-                    type: 'GET',
-                    success: function(response) {
-                        if (response.new_messages > 0) {
-                            updateInquiriesList();
-                            showNewMessageNotification(response.new_messages);
-                        }
-                    }
-                });
-            }
-            
-            // Update inquiries list
-            function updateInquiriesList() {
-                $.ajax({
-                    url: 'get_inquiries_list.php',
-                    type: 'GET',
-                    success: function(response) {
-                        $('#inquiriesContainer').html(response);
-                        updateTotalUnread();
-                        reattachEventHandlers();
-                    }
-                });
-            }
-            
-            // Reattach event handlers after updating list
-            function reattachEventHandlers() {
-                $('.open-chat').off('click').on('click', function() {
-                    const inquiryId = $(this).data('inquiry-id');
-                    const productName = $(this).data('product-name');
-                    const sellerName = $(this).data('seller-name');
-                    openChat(inquiryId, productName, sellerName);
-                });
-            }
-            
-            // Mark messages as read
-            function markMessagesAsRead(inquiryId) {
-                $.ajax({
-                    url: 'mark_messages_read.php',
-                    type: 'POST',
-                    data: { inquiry_id: inquiryId },
-                    success: function() {
-                        // Update UI
-                        $(`#unreadBadge_${inquiryId}`).remove();
-                        $(`.inquiry-card[data-inquiry-id="${inquiryId}"]`).removeClass('unread');
-                        updateTotalUnread();
-                    }
-                });
-            }
-            
-            // Show new message notification
-            function showNewMessageNotification(count) {
-                if (!document.hidden) {
-                    toastr.info(`You have ${count} new message(s)`, 'New Messages', {
-                        timeOut: 6000,
-                        onclick: function() {
-                            // Focus on the inquiries page
-                            window.focus();
-                        }
-                    });
-                }
-            }
-            
-            // Scroll to bottom of chat
-            function scrollToBottom() {
-                const chatMessages = document.getElementById('chatMessages');
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-            
-            // Start checking for messages
-            function startCheckingMessages() {
-                if (checkInterval) {
-                    clearInterval(checkInterval);
-                }
-                checkInterval = setInterval(checkForNewMessages, 3000); // Check every 3 seconds
-            }
-            
-            // Stop checking for messages
-            function stopCheckingMessages() {
-                if (checkInterval) {
-                    clearInterval(checkInterval);
-                    checkInterval = null;
-                }
-            }
-            
-            // Global message checking (every 30 seconds)
-            setInterval(checkForNewInquiries, 30000);
-            
-            // Stop checking when modal is closed
-            $('#chatModal').on('hidden.bs.modal', function() {
-                stopCheckingMessages();
-                currentInquiryId = null;
-            });
-            
-            // Initialize on page load
-            updateTotalUnread();
-        });
-    </script>
+
 </body>
 </html>

@@ -321,7 +321,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <hr class="my-4">
             <div class="text-center">
-                <p>&copy; 2024 BSDO Sale. All rights reserved.</p>
+                <p>&copy; 2024 BSDO Sale. All rights reserved. | Developed by <a href="mailto:Hermogene2001@gmail.com" class="text-decoration-none text-light">HermogenesTech</a></p>
             </div>
         </div>
     </footer>

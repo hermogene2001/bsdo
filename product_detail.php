@@ -404,49 +404,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
         </div>
     </div>
 
-    <!-- Inquiry Modal -->
-    <?php if ($is_logged_in && $user_role === 'client'): ?>
-    <div class="modal fade" id="inquiryModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Send Inquiry to Seller</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <footer class="bg-dark text-white py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <h5 class="mb-4"><i class="fas fa-shopping-bag me-2"></i>BSDO SALE</h5>
+                    <p>Your trusted e-commerce platform with live streaming, real-time inquiries, and rental products.</p>
                 </div>
-                <div class="modal-body">
-                    <div class="alert alert-info">Product: <span id="inquiryProductName"></span></div>
-                    <form method="POST">
-                        <input type="hidden" id="inquiryProductId" name="product_id">
-                        <div class="mb-3">
-                            <label class="form-label">Your Message</label>
-                            <textarea class="form-control" name="inquiry_message" rows="4" placeholder="Ask about product details, pricing, availability..." required></textarea>
-                        </div>
-                        <div class="d-grid">
-                            <button type="submit" name="send_inquiry" class="btn btn-primary"><i class="fas fa-paper-plane me-2"></i>Send Inquiry</button>
+                <div class="col-lg-2 col-md-4 mb-4">
+                    <h5 class="mb-4">Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><a href="index.php" class="text-decoration-none text-light">Home</a></li>
+                        <li class="mb-2"><a href="products.php" class="text-decoration-none text-light">Products</a></li>
+                        <li class="mb-2"><a href="categories.php" class="text-decoration-none text-light">Categories</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-md-4 mb-4">
+                    <h5 class="mb-4">Features</h5>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-comments me-2 text-primary"></i>Real-time Inquiries</li>
+                        <li class="mb-2"><i class="fas fa-video me-2 text-danger"></i>Live Shopping</li>
+                        <li class="mb-2"><i class="fas fa-shopping-bag me-2 text-info"></i>Buy Products</li>
+                        <li class="mb-2"><i class="fas fa-calendar-alt me-2 text-warning"></i>Rent Products</li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-md-4 mb-4">
+                    <h5 class="mb-4">Newsletter</h5>
+                    <p>Subscribe for updates on new products and live streams</p>
+                    <form>
+                        <div class="input-group mb-3">
+                            <input type="email" class="form-control" placeholder="Your email">
+                            <button class="btn btn-primary" type="button">Subscribe</button>
                         </div>
                     </form>
                 </div>
             </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <!-- Login Modal -->
-    <div class="modal fade" id="loginModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content auth-form">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title">Login to Your Account</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Please login to purchase this product.</p>
-                    <a href="login.php" class="btn btn-primary w-100">Login</a>
-                    <p class="mt-3 text-center">Don't have an account? <a href="register.php">Register now</a></p>
-                </div>
+            <hr class="my-4">
+            <div class="text-center">
+                <p>&copy; 2024 BSDO Sale. All rights reserved. | Developed by <a href="mailto:Hermogene2001@gmail.com" class="text-decoration-none text-light">HermogenesTech</a></p>
             </div>
         </div>
-    </div>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
