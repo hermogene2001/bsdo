@@ -1,0 +1,472 @@
+<?php
+session_start();
+require_once '../config.php';
+
+// Check if user is logged in and is admin
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+    header('Location: login.php');
+    exit();
+}
+
+// Initialize messages
+$success_message = '';
+$error_message = '';
+
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action'])) {
+        switch ($_POST['action']) {
+            case 'verify_payment_slip':
+                try {
+                    $id = intval($_POST['id']);
+                    $status = $_POST['status'];
+                    $admin_notes = trim($_POST['admin_notes']);
+                    
+                    // Get slip details first
+                    $stmt = $pdo->prepare("SELECT ps.*, p.name as product_name, u.first_name, u.last_name FROM payment_slips ps JOIN products p ON ps.product_id = p.id JOIN users u ON ps.seller_id = u.id WHERE ps.id = ?");
+                    $stmt->execute([$id]);
+                    $slip = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (!$slip) {
+                        throw new Exception("Payment slip not found");
+                    }
+                    
+                    // Update payment slip status
+                    $stmt = $pdo->prepare("UPDATE payment_slips SET status = ?, admin_notes = ? WHERE id = ?");
+                    $stmt->execute([$status, $admin_notes, $id]);
+                    
+                    // Update product verification_payment_status based on payment slip status
+                    if ($status === 'verified') {
+                        $product_status = 'paid';
+                    } elseif ($status === 'rejected') {
+                        $product_status = 'rejected';
+                    } else {
+                        $product_status = 'pending';
+                    }
+                    
+                    $stmt = $pdo->prepare("UPDATE products SET verification_payment_status = ? WHERE id = ?");
+                    $stmt->execute([$product_status, $slip['product_id']]);
+                    
+                    $success_message = "Payment slip $status successfully!";
+                    logAdminActivity("Verified payment slip ID: $id for product: " . $slip['product_name'] . " - Status: $status");
+                } catch (Exception $e) {
+                    $error_message = "Failed to verify payment slip: " . $e->getMessage();
+                }
+                break;
+        }
+    }
+}
+
+// Get payment slips with related data
+$stmt = $pdo->prepare("
+    SELECT ps.*, p.name as product_name, u.first_name, u.last_name, u.phone, u.account_number 
+    FROM payment_slips ps 
+    JOIN products p ON ps.product_id = p.id 
+    JOIN users u ON ps.seller_id = u.id 
+    ORDER BY ps.created_at DESC
+");
+$stmt->execute();
+$payment_slips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get payment verification rate setting
+$stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'payment_verification_rate'");
+$stmt->execute();
+$payment_verification_rate = $stmt->fetch(PDO::FETCH_ASSOC)['setting_value'] ?? '0.50';
+
+// Log admin activity
+logAdminActivity("Accessed payment slips management");
+
+function logAdminActivity($activity) {
+    global $pdo;
+    if (isset($_SESSION['user_id'])) {
+        $stmt = $pdo->prepare("INSERT INTO admin_activities (admin_id, activity, ip_address) VALUES (?, ?, ?)");
+        $stmt->execute([$_SESSION['user_id'], $activity, $_SERVER['REMOTE_ADDR']]);
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Slips - BSDO Sale Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #1cc88a;
+            --warning-color: #f6c23e;
+            --danger-color: #e74a3b;
+            --dark-color: #2e3a59;
+            --light-color: #f8f9fc;
+            --sidebar-width: 250px;
+        }
+        
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f8f9fc;
+            overflow-x: hidden;
+        }
+        
+        #wrapper {
+            display: flex;
+        }
+        
+        #sidebar {
+            min-width: var(--sidebar-width);
+            max-width: var(--sidebar-width);
+            background: var(--dark-color);
+            color: #fff;
+            transition: all 0.3s;
+            min-height: 100vh;
+        }
+        
+        #sidebar.active {
+            margin-left: -var(--sidebar-width);
+        }
+        
+        #sidebar .sidebar-header {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        #sidebar ul.components {
+            padding: 20px 0;
+        }
+        
+        #sidebar ul li a {
+            padding: 15px 20px;
+            font-size: 1.1em;
+            display: block;
+            color: #fff;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        
+        #sidebar ul li a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        
+        #sidebar ul li.active > a {
+            background: var(--primary-color);
+            color: #fff;
+        }
+        
+        #sidebar ul li a i {
+            margin-right: 10px;
+        }
+        
+        #content {
+            width: 100%;
+            padding: 20px;
+            min-height: 100vh;
+            transition: all 0.3s;
+        }
+        
+        .navbar {
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background-color: #f8f9fc;
+            border-bottom: 1px solid #e3e6f0;
+            padding: 15px 20px;
+            font-weight: 700;
+        }
+        
+        .sidebar-toggler {
+            cursor: pointer;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .slip-card {
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .slip-image {
+            max-width: 200px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+        
+        .status-pending {
+            background-color: var(--warning-color);
+        }
+        
+        .status-verified {
+            background-color: var(--secondary-color);
+        }
+        
+        .status-rejected {
+            background-color: var(--danger-color);
+        }
+    </style>
+</head>
+<body>
+    <div id="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-shopping-bag me-2"></i>BSDO Admin</h3>
+            </div>
+            
+            <ul class="list-unstyled components">
+                <li>
+                    <a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                </li>
+                <li>
+                    <a href="users.php"><i class="fas fa-users"></i> Users</a>
+                </li>
+                <li>
+                    <a href="products.php"><i class="fas fa-box"></i> Products</a>
+                </li>
+                <li>
+                    <a href="categories.php"><i class="fas fa-tags"></i> Categories</a>
+                </li>
+                <li>
+                    <a href="sellers.php"><i class="fas fa-store"></i> Sellers</a>
+                </li>
+                <li>
+                    <a href="orders.php"><i class="fas fa-shopping-cart"></i> Orders</a>
+                </li>
+                <li>
+                    <a href="analytics.php"><i class="fas fa-chart-bar"></i> Analytics</a>
+                </li>
+                <li>
+                    <a href="carousel.php"><i class="fas fa-images"></i> Carousel</a>
+                </li>
+                <li class="active">
+                    <a href="payment_slips.php"><i class="fas fa-money-check"></i> Payment Slips</a>
+                </li>
+                <li>
+                    <a href="payment_channels.php"><i class="fas fa-money-bill-wave"></i> Payment Channels</a>
+                </li>
+                <li>
+                    <a href="settings.php"><i class="fas fa-cog"></i> Settings</a>
+                </li>
+                <li>
+                    <a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Content -->
+        <div id="content">
+            <!-- Top Navbar -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-white mb-4">
+                <div class="container-fluid">
+                    <button type="button" id="sidebarCollapse" class="btn btn-primary sidebar-toggler">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    
+                    <div class="d-flex align-items-center">
+                        <div class="dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                                <div class="user-avatar me-2">A</div>
+                                <span>Admin User</span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="settings.php#profile"><i class="fas fa-user me-2"></i>Profile</a></li>
+                                <li><a class="dropdown-item" href="settings.php"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Page Heading -->
+            <div class="d-sm-flex align-items-center justify-content-between mb-4">
+                <h1 class="h3 mb-0 text-gray-800">Payment Slips Management</h1>
+            </div>
+
+            <!-- Alerts -->
+            <?php if (!empty($success_message)): ?>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <?php echo $success_message; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (!empty($error_message)): ?>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <?php echo $error_message; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+
+            <!-- Payment Verification Rate Info -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>Payment Verification Information</h5>
+                    <p class="mb-0">Current payment verification rate: <strong><?php echo $payment_verification_rate; ?>%</strong></p>
+                    <a href="settings.php#payment" class="btn btn-sm btn-primary mt-2">Update Rate</a>
+                </div>
+            </div>
+
+            <!-- Payment Slips List -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-money-check me-2"></i>Payment Slips</h5>
+                </div>
+                <div class="card-body">
+                    <?php if (!empty($payment_slips)): ?>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Seller</th>
+                                        <th>Amount</th>
+                                        <th>Verification Rate</th>
+                                        <th>Slip</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($payment_slips as $slip): ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($slip['product_name']); ?></td>
+                                    <td><?php echo htmlspecialchars($slip['first_name'] . ' ' . $slip['last_name']); ?></td>
+                                    <td>$<?php echo number_format($slip['amount'], 2); ?></td>
+                                    <td><?php echo number_format($slip['verification_rate'], 2); ?>%</td>
+                                    <td>
+                                        <?php if (!empty($slip['slip_path'])): ?>
+                                            <a href="../<?php echo htmlspecialchars($slip['slip_path']); ?>" target="_blank">
+                                                <img src="../<?php echo htmlspecialchars($slip['slip_path']); ?>" alt="Payment Slip" class="slip-image">
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="text-muted">No slip uploaded</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="badge <?php 
+                                            echo $slip['status'] === 'pending' ? 'bg-warning' : 
+                                                ($slip['status'] === 'verified' ? 'bg-success' : 'bg-danger'); 
+                                        ?>">
+                                            <?php echo ucfirst($slip['status']); ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo date('M j, Y', strtotime($slip['created_at'])); ?></td>
+                                    <td>
+                                        <?php if ($slip['status'] === 'pending'): ?>
+                                            <button class="btn btn-sm btn-primary" 
+                                                    onclick="verifySlip(<?php echo $slip['id']; ?>, '<?php echo htmlspecialchars($slip['product_name'], ENT_QUOTES); ?>')">
+                                                <i class="fas fa-check"></i> Verify
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted">Processed</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div class="text-center py-5">
+                    <i class="fas fa-money-check fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No payment slips found</h5>
+                    <p class="text-muted">Payment slips will appear here when sellers upload them.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- Verify Payment Slip Modal -->
+<div class="modal fade" id="verifySlipModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Verify Payment Slip</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="verify_payment_slip">
+                    <input type="hidden" name="id" id="verify_slip_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Product</label>
+                        <input type="text" class="form-control" id="verify_product_name" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Verification Status</label>
+                        <select class="form-control" name="status" required>
+                            <option value="verified">Verified</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Admin Notes</label>
+                        <textarea class="form-control" name="admin_notes" rows="3" placeholder="Add any notes about this verification..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Sidebar Toggle
+    document.getElementById('sidebarCollapse').addEventListener('click', function() {
+        document.getElementById('sidebar').classList.toggle('active');
+    });
+
+    // Verify Slip Function
+    function verifySlip(id, productName) {
+        document.getElementById('verify_slip_id').value = id;
+        document.getElementById('verify_product_name').value = productName;
+        
+        var verifyModal = new bootstrap.Modal(document.getElementById('verifySlipModal'));
+        verifyModal.show();
+    }
+
+    // Auto-dismiss alerts
+    document.addEventListener('DOMContentLoaded', function() {
+        var alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            setTimeout(function() {
+                var bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }, 5000);
+        });
+    });
+</script>
+</body>
+</html>
