@@ -8,8 +8,26 @@ $login_form_data = $_SESSION['login_form_data'] ?? [];
 $registration_success = $_SESSION['registration_success'] ?? '';
 $register_error = $_SESSION['register_error'] ?? '';
 
+// Check for registration success from URL parameters
+$registration_success = '';
+if (isset($_GET['registration']) && $_GET['registration'] === 'success') {
+    $role = $_GET['role'] ?? 'client';
+    if ($role === 'seller') {
+        $seller_code = $_GET['seller_code'] ?? '';
+        if (!empty($seller_code)) {
+            $registration_success = "Account created successfully! Your seller code is: <strong>" . htmlspecialchars($seller_code) . "</strong>. Please save this code for future login.";
+            // Also set in session for display in modal
+            $_SESSION['seller_code'] = $seller_code;
+        } else {
+            $registration_success = "Seller account created successfully! Please check your email for your seller code.";
+        }
+    } else {
+        $registration_success = "Account created successfully! Please login.";
+    }
+}
+
 // Clear session messages after retrieving
-unset($_SESSION['login_error'], $_SESSION['login_form_data'], $_SESSION['registration_success'], $_SESSION['register_error']);
+unset($_SESSION['login_error'], $_SESSION['login_form_data'], $_SESSION['registration_success'], $_SESSION['register_error'], $_SESSION['seller_code']);
 
 // User session data
 $is_logged_in = isset($_SESSION['user_id']);
@@ -380,6 +398,44 @@ function getCategoryIcon($categoryName) {
             color: white;
             padding: 60px 0 30px;
         }
+        
+        /* Seller code display styles */
+        .seller-code-display {
+            background: linear-gradient(135deg, #1cc88a, #18a873);
+            color: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(28, 200, 138, 0.3);
+        }
+        
+        .seller-code {
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 5px;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        
+        .copy-btn {
+            background: white;
+            color: #1cc88a;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .copy-btn:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
@@ -599,104 +655,97 @@ function getCategoryIcon($categoryName) {
                                     </div>
                                     
                                     <div class="btn-group w-100">
-                                        <?php if ($is_logged_in && $user_role === 'client'): ?>
-                                            <?php if ($product['product_type'] === 'rental'): ?>
-                                                <button class="btn btn-rental btn-sm" onclick="alert('Rental feature coming soon!')"><i class="fas fa-calendar-plus me-1"></i>Rent</button>
-                                            <?php else: ?>
-                                                <form method="POST" class="flex-fill">
-                                                    <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
-                                                    <button type="submit" name="add_to_cart" class="btn btn-regular btn-sm w-100"><i class="fas fa-cart-plus me-1"></i>Buy</button>
-                                                </form>
-                                            <?php endif; ?>
-                                            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
-                                                    onclick="setInquiryProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>')">
-                                                <i class="fas fa-question-circle me-1"></i>Ask
-                                            </button>
-                                        <?php elseif (!$is_logged_in): ?>
-                                            <a href="#" class="btn btn-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#loginModal"><i class="fas fa-lock me-1"></i>Login to Purchase</a>
-                                        <?php else: ?>
-                                            <button class="btn btn-outline-primary btn-sm w-100" disabled><i class="fas fa-eye me-1"></i>View Only</button>
-                                        <?php endif; ?>
-                                    </div>
-                                    
-                                    <!-- View More Button -->
-                                    <div class="mt-2 text-center">
-                                        <a href="product_detail.php?id=<?php echo $product['id']; ?>" class="btn btn-sm btn-outline-secondary">
-                                            <i class="fas fa-info-circle me-1"></i>View Details
+                                        <a href="product_detail.php?id=<?php echo $product['id']; ?>" class="btn btn-primary">
+                                            <i class="fas fa-eye me-1"></i>View
                                         </a>
+                                        <?php if ($product['product_type'] === 'rental'): ?>
+                                            <a href="product_detail.php?id=<?php echo $product['id']; ?>&action=rent" class="btn btn-rental">
+                                                <i class="fas fa-calendar-plus me-1"></i>Rent
+                                            </a>
+                                        <?php else: ?>
+                                            <a href="product_detail.php?id=<?php echo $product['id']; ?>&action=buy" class="btn btn-regular">
+                                                <i class="fas fa-shopping-cart me-1"></i>Buy
+                                            </a>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 <?php else: ?>
-                    <div class="col-12 text-center py-5">
-                        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-                        <h4 class="text-muted">No products found</h4>
-                        <p class="text-muted">Try adjusting your search or filter criteria.</p>
-                        <a href="index.php" class="btn btn-primary">Clear Filters</a>
+                    <div class="col-12">
+                        <div class="text-center py-5">
+                            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                            <h4>No products found</h4>
+                            <p class="text-muted">Try adjusting your search or filter criteria</p>
+                        </div>
                     </div>
                 <?php endif; ?>
             </div>
-            
-            <!-- View More Button -->
-            <div class="text-center mt-4">
-                <a href="products.php<?php echo (!empty($product_type) || !empty($search_query)) ? '?' . http_build_query(array_filter(['type' => $product_type, 'search' => $search_query])) : ''; ?>" class="btn btn-outline-primary btn-lg">
-                    <i class="fas fa-search me-2"></i>View All Products (<?php echo $total_products; ?>)
-                </a>
-            </div>
         </div>
     </section>
 
+    <!-- Stats Section -->
     <section class="stats-section">
-        <div class="container text-center">
-            <div class="row">
-                <div class="col-md mb-4">
-                    <div class="stat-number text-primary"><?php echo number_format($stats['total_regular_products'] ?? 0); ?></div>
-                    <p class="mb-0">Regular Products</p>
+        <div class="container">
+            <div class="row text-center">
+                <div class="col-md-3 mb-4">
+                    <div class="stat-number text-primary"><?php echo number_format($stats['total_regular_products']); ?></div>
+                    <div class="text-muted">Regular Products</div>
                 </div>
-                <div class="col-md mb-4">
-                    <div class="stat-number text-warning"><?php echo number_format($stats['total_rental_products'] ?? 0); ?></div>
-                    <p class="mb-0">Rental Products</p>
+                <div class="col-md-3 mb-4">
+                    <div class="stat-number text-warning"><?php echo number_format($stats['total_rental_products']); ?></div>
+                    <div class="text-muted">Rental Products</div>
                 </div>
-                <div class="col-md mb-4">
-                    <div class="stat-number text-success"><?php echo number_format($stats['total_sellers'] ?? 0); ?></div>
-                    <p class="mb-0">Sellers</p>
+                <div class="col-md-3 mb-4">
+                    <div class="stat-number text-success"><?php echo number_format($stats['total_sellers']); ?></div>
+                    <div class="text-muted">Active Sellers</div>
                 </div>
-                <div class="col-md mb-4">
-                    <div class="stat-number text-info"><?php echo number_format($stats['total_orders'] ?? 0); ?></div>
-                    <p class="mb-0">Completed</p>
+                <div class="col-md-3 mb-4">
+                    <div class="stat-number text-info"><?php echo number_format($stats['total_orders']); ?></div>
+                    <div class="text-muted">Completed Orders</div>
                 </div>
             </div>
         </div>
     </section>
 
-    <?php if ($is_logged_in && $user_role === 'client'): ?>
-    <div class="modal fade" id="inquiryModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Send Inquiry to Seller</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- Features Section -->
+    <section id="features" class="py-5">
+        <div class="container">
+            <h2 class="text-center mb-5">Why Choose BSDO Sale?</h2>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-video fa-2x"></i>
+                        </div>
+                        <h4>Live Shopping</h4>
+                        <p class="text-muted">Connect with sellers in real-time through our live streaming feature.</p>
+                    </div>
                 </div>
-                <div class="modal-body">
-                    <div class="alert alert-info">Product: <span id="inquiryProductName"></span></div>
-                    <form method="POST">
-                        <input type="hidden" id="inquiryProductId" name="product_id">
-                        <div class="mb-3">
-                            <label class="form-label">Your Message</label>
-                            <textarea class="form-control" name="inquiry_message" rows="4" placeholder="Ask about product details, pricing, availability..." required></textarea>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-comments fa-2x"></i>
                         </div>
-                        <div class="d-grid">
-                            <button type="submit" name="send_inquiry" class="btn btn-primary"><i class="fas fa-paper-plane me-2"></i>Send Inquiry</button>
+                        <h4>Real-time Inquiries</h4>
+                        <p class="text-muted">Chat directly with sellers to get instant answers to your questions.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-calendar-alt fa-2x"></i>
                         </div>
-                    </form>
+                        <h4>Rent Products</h4>
+                        <p class="text-muted">Rent products for short-term use at affordable daily or weekly rates.</p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-    <?php endif; ?>
+    </section>
 
+    <!-- Login Modal -->
     <div class="modal fade" id="loginModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content auth-form">
@@ -714,39 +763,55 @@ function getCategoryIcon($categoryName) {
                     
                     <?php if (!empty($registration_success)): ?>
                         <div class="alert alert-success alert-dismissible fade show">
-                            <?php echo htmlspecialchars($registration_success); ?>
+                            <?php echo $registration_success; ?>
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     <?php endif; ?>
                     
-                    <div class="role-selector">
+                    <div class="role-selector mb-4">
                         <div class="role-option active" data-role="client"><i class="fas fa-user"></i><div>Client</div></div>
                         <div class="role-option" data-role="seller"><i class="fas fa-store"></i><div>Seller</div></div>
-                        <div class="role-option" data-role="admin"><i class="fas fa-cog"></i><div>Admin</div></div>
+                        <div class="role-option" data-role="admin"><i class="fas fa-user-shield"></i><div>Admin</div></div>
                     </div>
                     
                     <form id="loginForm" action="login.php" method="POST">
                         <input type="hidden" id="loginRole" name="role" value="client">
                         <div class="mb-3">
                             <label for="loginEmail" class="form-label">Email address</label>
-                            <input type="email" class="form-control" id="loginEmail" name="email" required value="<?php echo htmlspecialchars($login_form_data['email'] ?? ''); ?>">
+                            <input type="email" class="form-control" id="loginEmail" name="email" 
+                                   value="<?php echo htmlspecialchars($login_form_data['email'] ?? ''); ?>" required>
                         </div>
                         <div class="mb-3">
                             <label for="loginPassword" class="form-label">Password</label>
                             <input type="password" class="form-control" id="loginPassword" name="password" required>
                         </div>
+                        
                         <div id="sellerFields" class="role-fields" style="display: none;">
                             <div class="mb-3">
                                 <label for="sellerCode" class="form-label">Seller Code</label>
-                                <input type="text" class="form-control" id="sellerCode" name="seller_code" value="<?php echo htmlspecialchars($login_form_data['seller_code'] ?? ''); ?>">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                    <input type="text" class="form-control" id="sellerCode" name="seller_code" 
+                                           value="<?php echo htmlspecialchars($_COOKIE['seller_code'] ?? ''); ?>"
+                                           placeholder="Enter your seller code">
+                                </div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Your seller code was provided during registration
+                                </small>
                             </div>
                         </div>
+                        
                         <div id="adminFields" class="role-fields" style="display: none;">
                             <div class="mb-3">
                                 <label for="adminKey" class="form-label">Admin Security Key</label>
-                                <input type="password" class="form-control" id="adminKey" name="admin_key" value="<?php echo htmlspecialchars($login_form_data['admin_key'] ?? ''); ?>">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="adminKey" name="admin_key" placeholder="Enter admin security key">
+                                </div>
                             </div>
                         </div>
+                        
                         <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="rememberMe" name="remember_me">
                             <label class="form-check-label" for="rememberMe">Remember me</label>
@@ -755,9 +820,6 @@ function getCategoryIcon($categoryName) {
                             <button type="submit" class="btn btn-primary btn-lg">Login</button>
                         </div>
                     </form>
-                    <div class="text-center mt-3">
-                        <a href="#" class="text-decoration-none">Forgot your password?</a>
-                    </div>
                     <hr class="my-4">
                     <div class="text-center">
                         <p>Don't have an account? <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal" data-bs-dismiss="modal" class="text-decoration-none">Register now</a></p>
@@ -767,6 +829,7 @@ function getCategoryIcon($categoryName) {
         </div>
     </div>
 
+    <!-- Register Modal -->
     <div class="modal fade" id="registerModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content auth-form">
@@ -1041,6 +1104,34 @@ function getCategoryIcon($categoryName) {
             notification.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
             document.body.appendChild(notification);
             setTimeout(() => notification.remove(), 5000);
+        }
+
+        // Function to copy seller code to clipboard
+        function copySellerCode() {
+            const sellerCode = document.getElementById('sellerCodeDisplay').textContent;
+            navigator.clipboard.writeText(sellerCode).then(() => {
+                alert('Seller code copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = sellerCode;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Seller code copied to clipboard!');
+            });
+        }
+
+        // Function to save seller code to cookie
+        function saveSellerCodeToCookie() {
+            const sellerCode = document.getElementById('sellerCodeDisplay').textContent;
+            // Set cookie to expire in 30 days
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + 30);
+            document.cookie = `seller_code=${sellerCode}; expires=${expiryDate.toUTCString()}; path=/`;
+            alert('Seller code saved to cookies! It will be auto-filled next time you login as a seller.');
         }
 
         setInterval(checkForInquiryUpdates, 30000);

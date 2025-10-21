@@ -2,17 +2,6 @@
 session_start();
 require_once 'config.php';
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit();
-}
-
-$user_id = $_SESSION['user_id'];
-$user_role = $_SESSION['user_role'];
-$error_message = '';
-$success_message = '';
-
 // Get filter parameters
 $category_id = isset($_GET['category']) ? intval($_GET['category']) : '';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -22,6 +11,15 @@ $max_price = isset($_GET['max_price']) ? floatval($_GET['max_price']) : '';
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $limit = 12; // Products per page
 $offset = ($page - 1) * $limit;
+
+// Check if user is logged in
+$is_logged_in = isset($_SESSION['user_id']);
+$user_id = $_SESSION['user_id'] ?? null;
+$user_role = $_SESSION['user_role'] ?? null;
+$user_name = $_SESSION['user_name'] ?? null;
+
+$error_message = '';
+$success_message = '';
 
 // Build products query with filters
 $query = "
@@ -152,8 +150,8 @@ $categories_stmt = $pdo->prepare("SELECT id, name FROM categories WHERE status =
 $categories_stmt->execute();
 $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Handle add to cart action
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
+// Handle add to cart action (only for logged in clients)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_logged_in && $user_role === 'client') {
     if (isset($_POST['add_to_cart'])) {
         $product_id = intval($_POST['product_id']);
         $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
@@ -424,40 +422,45 @@ function formatAddress($product) {
                     <li class="nav-item"><a class="nav-link" href="index.php">Home</a></li>
                     <li class="nav-item"><a class="nav-link active" href="products.php">Products</a></li>
                     <li class="nav-item"><a class="nav-link" href="categories.php">Categories</a></li>
-                    <?php if ($user_role === 'client'): ?>
+                    <?php if ($is_logged_in && $user_role === 'client'): ?>
                         <li class="nav-item"><a class="nav-link" href="cart.php">Cart</a></li>
                         <li class="nav-item"><a class="nav-link" href="orders.php">Orders</a></li>
                     <?php endif; ?>
                 </ul>
                 
                 <div class="d-flex align-items-center">
-                    <div class="dropdown">
-                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
-                            <div class="user-avatar me-2">
-                                <?php echo strtoupper(substr($_SESSION['user_name'], 0, 1)); ?>
-                            </div>
-                            <span><?php echo htmlspecialchars(explode(' ', $_SESSION['user_name'])[0]); ?></span>
-                            <?php if ($user_role === 'client' && isset($_SESSION['cart']) && count($_SESSION['cart']) > 0): ?>
-                                <span class="position-relative ms-2">
-                                    <i class="fas fa-shopping-cart"></i>
-                                    <span class="cart-badge"><?php echo count($_SESSION['cart']); ?></span>
-                                </span>
-                            <?php endif; ?>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <?php if ($user_role === 'seller'): ?>
-                                <li><a class="dropdown-item" href="seller/dashboard.php"><i class="fas fa-tachometer-alt me-2"></i>Seller Dashboard</a></li>
-                            <?php elseif ($user_role === 'admin'): ?>
-                                <li><a class="dropdown-item" href="admin/dashboard.php"><i class="fas fa-cog me-2"></i>Admin Panel</a></li>
-                            <?php else: ?>
-                                <li><a class="dropdown-item" href="client/dashboard.php"><i class="fas fa-user me-2"></i>My Account</a></li>
-                                <li><a class="dropdown-item" href="cart.php"><i class="fas fa-shopping-cart me-2"></i>Shopping Cart</a></li>
-                                <li><a class="dropdown-item" href="orders.php"><i class="fas fa-receipt me-2"></i>My Orders</a></li>
-                            <?php endif; ?>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
+                    <?php if ($is_logged_in): ?>
+                        <div class="dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                                <div class="user-avatar me-2">
+                                    <?php echo strtoupper(substr($user_name, 0, 1)); ?>
+                                </div>
+                                <span><?php echo htmlspecialchars(explode(' ', $user_name)[0]); ?></span>
+                                <?php if ($user_role === 'client' && isset($_SESSION['cart']) && count($_SESSION['cart']) > 0): ?>
+                                    <span class="position-relative ms-2">
+                                        <i class="fas fa-shopping-cart"></i>
+                                        <span class="cart-badge"><?php echo count($_SESSION['cart']); ?></span>
+                                    </span>
+                                <?php endif; ?>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <?php if ($user_role === 'seller'): ?>
+                                    <li><a class="dropdown-item" href="seller/dashboard.php"><i class="fas fa-tachometer-alt me-2"></i>Seller Dashboard</a></li>
+                                <?php elseif ($user_role === 'admin'): ?>
+                                    <li><a class="dropdown-item" href="admin/dashboard.php"><i class="fas fa-cog me-2"></i>Admin Panel</a></li>
+                                <?php else: ?>
+                                    <li><a class="dropdown-item" href="myAccount.php"><i class="fas fa-user me-2"></i>My Account</a></li>
+                                    <li><a class="dropdown-item" href="cart.php"><i class="fas fa-shopping-cart me-2"></i>Shopping Cart</a></li>
+                                    <li><a class="dropdown-item" href="orders.php"><i class="fas fa-receipt me-2"></i>My Orders</a></li>
+                                <?php endif; ?>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            </ul>
+                        </div>
+                    <?php else: ?>
+                        <a href="login.php" class="btn btn-outline-primary me-2">Login</a>
+                        <a href="register.php" class="btn btn-primary">Register</a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -689,7 +692,7 @@ function formatAddress($product) {
                                                     <span class="seller-badge"><?php echo htmlspecialchars($product['store_name']); ?></span>
                                                 </div>
                                                 
-                                                <?php if ($user_role === 'client'): ?>
+                                                <?php if ($is_logged_in && $user_role === 'client'): ?>
                                                     <?php if ($product['product_type'] === 'rental'): ?>
                                                         <div class="d-grid gap-2">
                                                             <button class="btn btn-warning btn-sm" onclick="alert('Rental booking feature coming soon!')">
@@ -715,9 +718,30 @@ function formatAddress($product) {
                                                         </form>
                                                     <?php endif; ?>
                                                 <?php else: ?>
-                                                    <button class="btn btn-outline-primary btn-sm w-100" disabled>
-                                                        <i class="fas fa-eye me-1"></i>View Product
-                                                    </button>
+                                                    <div class="d-grid gap-2">
+                                                        <?php if ($product['product_type'] === 'rental'): ?>
+                                                            <?php if ($is_logged_in): ?>
+                                                                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
+                                                                        onclick="setInquiryProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>')">
+                                                                    <i class="fas fa-question-circle me-1"></i>Ask About Rental
+                                                                </button>
+                                                            <?php else: ?>
+                                                                <a href="login.php" class="btn btn-outline-primary btn-sm">
+                                                                    <i class="fas fa-sign-in-alt me-1"></i>Login to Rent
+                                                                </a>
+                                                            <?php endif; ?>
+                                                        <?php else: ?>
+                                                            <?php if ($is_logged_in): ?>
+                                                                <button class="btn btn-outline-primary btn-sm" disabled>
+                                                                    <i class="fas fa-eye me-1"></i>View Product
+                                                                </button>
+                                                            <?php else: ?>
+                                                                <a href="login.php" class="btn btn-primary btn-sm">
+                                                                    <i class="fas fa-shopping-cart me-1"></i>Login to Buy
+                                                                </a>
+                                                            <?php endif; ?>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 <?php endif; ?>
                                             </div>
                                         </div>

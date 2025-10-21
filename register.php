@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user_id = $pdo->lastInsertId();
         
         // If seller, generate seller code
+        $seller_code = '';
         if ($role === 'seller') {
             $seller_code = 'SELLER' . str_pad($user_id, 6, '0', STR_PAD_LEFT);
             $stmt = $pdo->prepare("INSERT INTO seller_codes (seller_id, seller_code) VALUES (?, ?)");
@@ -100,8 +101,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log('Referral error: ' . $e->getMessage());
         }
         
+        // Set cookie for seller code if this is a seller registration
+        if ($role === 'seller' && !empty($seller_code)) {
+            // Set cookie to expire in 30 days
+            setcookie('seller_code', $seller_code, time() + (30 * 24 * 60 * 60), '/', '', false, true);
+        }
+        
         // Redirect to login page with success message
-        header('Location: index.php?registration=success&role=' . $role);
+        header('Location: index.php?registration=success&role=' . $role . (!empty($seller_code) ? '&seller_code=' . urlencode($seller_code) : ''));
         exit();
     } else {
         die('Registration failed. Please try again.');
