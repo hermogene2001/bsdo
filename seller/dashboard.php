@@ -98,6 +98,29 @@ function formatCurrency($amount) {
             color: white;
             min-height: calc(100vh - 56px);
         }
+
+        @media (max-width: 991.98px) {
+            .sidebar {
+                display: none;
+            }
+            .navbar-nav .nav-link {
+                color: rgba(255, 255, 255, 0.8) !important;
+                padding: 0.5rem 1rem;
+            }
+            .navbar-nav .nav-link:hover {
+                color: white !important;
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+            .navbar-nav .nav-link.active {
+                color: white !important;
+                background-color: rgba(255, 255, 255, 0.15);
+            }
+            #navbarNav {
+                margin-top: 1rem;
+                padding: 0.5rem;
+                background: var(--dark-color);
+            }
+        }
         
         .sidebar .nav-link {
             color: rgba(255, 255, 255, 0.8);
@@ -202,6 +225,52 @@ function formatCurrency($amount) {
                 <strong>BSDO Seller</strong>
             </a>
             
+            <!-- Mobile menu button -->
+            <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Mobile navigation menu -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav d-lg-none">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="dashboard.php">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="products.php">
+                            <i class="fas fa-box me-2"></i>Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="rental_products.php">
+                            <i class="fas fa-calendar-alt me-2"></i>Rental Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="orders.php">
+                            <i class="fas fa-shopping-cart me-2"></i>Orders
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="analytics.php">
+                            <i class="fas fa-chart-bar me-2"></i>Analytics
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="profile.php">
+                            <i class="fas fa-user me-2"></i>Profile
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="settings.php">
+                            <i class="fas fa-cog me-2"></i>Settings
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
             <div class="d-flex align-items-center">
                 <div class="dropdown">
                     <a class="nav-link dropdown-toggle text-white d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
@@ -224,7 +293,7 @@ function formatCurrency($amount) {
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-lg-2 sidebar d-none d-lg-block">
+            <div class="col-lg-2 sidebar">
                 <div class="pt-4">
                     <ul class="nav flex-column">
                         <li class="nav-item">
@@ -267,7 +336,7 @@ function formatCurrency($amount) {
             </div>
 
             <!-- Main Content -->
-            <div class="col-lg-10 col-md-12 p-4">
+            <div class="col-lg-10 col-12 p-4">
                 <!-- Seller Code Display -->
                 <?php if (!empty($seller['seller_code'])): ?>
                     <div class="seller-code-display">
