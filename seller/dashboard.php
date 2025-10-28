@@ -174,6 +174,23 @@ function formatCurrency($amount) {
             background: #f0f0f0;
             transform: translateY(-2px);
         }
+
+        /* Quick Links (accessible cards) */
+        .quick-links { margin-bottom: 1.5rem; }
+        .quick-link-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            text-align: center;
+            transition: transform 0.15s, box-shadow 0.15s;
+            cursor: pointer;
+            color: #2e3a59;
+            text-decoration: none;
+        }
+        .quick-link-card:hover, .quick-link-card:focus { transform: translateY(-4px); box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+        .quick-link-icon { font-size: 1.6rem; color: var(--primary-color); }
+        .quick-link-label { display: block; margin-top: 8px; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -281,6 +298,52 @@ function formatCurrency($amount) {
                 </div>
 
                 <!-- Quick Stats -->
+                <!-- Quick Links: provide one-click access to common seller actions -->
+                <div class="quick-links row mb-4">
+                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                        <a href="products.php" class="quick-link-card d-block" role="button" aria-label="View Products">
+                            <div class="quick-link-icon"><i class="fas fa-box"></i></div>
+                            <span class="quick-link-label">Products</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                        <a href="products.php?action=add" class="quick-link-card d-block" role="button" aria-label="Add Product">
+                            <div class="quick-link-icon"><i class="fas fa-plus-circle"></i></div>
+                            <span class="quick-link-label">Add Product</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                        <a href="orders.php" class="quick-link-card d-block" role="button" aria-label="View Orders">
+                            <div class="quick-link-icon"><i class="fas fa-shopping-cart"></i></div>
+                            <span class="quick-link-label">Orders</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                        <a href="analytics.php" class="quick-link-card d-block" role="button" aria-label="View Analytics">
+                            <div class="quick-link-icon"><i class="fas fa-chart-line"></i></div>
+                            <span class="quick-link-label">Analytics</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                        <a href="live_stream.php" class="quick-link-card d-block" role="button" aria-label="Go Live">
+                            <div class="quick-link-icon"><i class="fas fa-video"></i></div>
+                            <span class="quick-link-label">Go Live</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                        <a href="settings.php" class="quick-link-card d-block" role="button" aria-label="Settings">
+                            <div class="quick-link-icon"><i class="fas fa-cog"></i></div>
+                            <span class="quick-link-label">Settings</span>
+                        </a>
+                    </div>
+                    <!-- Optional: sample data / generate page -->
+                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                        <a href="generate_sample_data.php" class="quick-link-card d-block" role="button" aria-label="Generate Sample Data">
+                            <div class="quick-link-icon"><i class="fas fa-database"></i></div>
+                            <span class="quick-link-label">Sample Data</span>
+                        </a>
+                    </div>
+                </div>
                 <div class="row mb-4">
                     <div class="col-md-3 mb-3">
                         <div class="stats-card">
