@@ -383,6 +383,12 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
+        
+        <!-- WebRTC Status Notice -->
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>WebRTC Streaming:</strong> This interface now supports actual video streaming using WebRTC technology.
+        </div>
 
         <?php if ($current_stream): ?>
             <!-- Live Stream with Camera -->
@@ -395,6 +401,10 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                         <div class="viewer-count">
                             <i class="fas fa-eye me-1"></i><?php echo $current_stream['current_viewers']; ?> watching
+                        </div>
+                        <!-- Connection status indicator -->
+                        <div id="connectionStatus" class="position-absolute top-0 end-0 m-3 p-2 bg-info text-white rounded" style="display: none;">
+                            <i class="fas fa-sync fa-spin me-1"></i> Connecting...
                         </div>
                         <div class="camera-controls">
                             <button class="camera-btn" id="startCamera" title="Start Camera">
@@ -685,18 +695,32 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
         let stream = null;
         let currentFacingMode = 'user';
         let isMuted = false;
+        let peerConnection = null;
+        let roomId = null;
+        let localStream = null;
+        let messagePollingInterval = null;
+        let lastMessageId = 0;
+
+        // WebRTC configuration
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
 
         // Start camera when page loads if stream is active
         document.addEventListener('DOMContentLoaded', function() {
             <?php if ($current_stream): ?>
                 startCamera();
+                initializeWebRTC();
             <?php endif; ?>
         });
 
         async function startCamera() {
             try {
                 // Request camera access
-                stream = await navigator.mediaDevices.getUserMedia({
+                localStream = await navigator.mediaDevices.getUserMedia({
                     video: { 
                         facingMode: currentFacingMode,
                         width: { ideal: 1280 },
@@ -706,7 +730,7 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
                 });
 
                 const videoElement = document.getElementById('videoElement');
-                videoElement.srcObject = stream;
+                videoElement.srcObject = localStream;
 
                 // Show camera controls
                 document.getElementById('startCamera').style.display = 'none';
@@ -722,9 +746,9 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
         function stopCamera() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
                 
                 const videoElement = document.getElementById('videoElement');
                 videoElement.srcObject = null;
@@ -738,7 +762,7 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
         async function switchCamera() {
-            if (stream) {
+            if (localStream) {
                 stopCamera();
                 currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
                 await startCamera();
@@ -746,15 +770,230 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
         function toggleMute() {
-            if (stream) {
-                const audioTracks = stream.getAudioTracks();
+            if (localStream) {
+                const audioTracks = localStream.getAudioTracks();
                 audioTracks.forEach(track => {
-                    track.enabled = isMuted;
+                    track.enabled = !track.enabled;
                 });
                 isMuted = !isMuted;
                 
                 const muteBtn = document.getElementById('muteAudio');
                 muteBtn.innerHTML = isMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
+            }
+        }
+
+        // Initialize WebRTC
+        async function initializeWebRTC() {
+            <?php if ($current_stream): ?>
+            try {
+                // Create room for this stream
+                const response = await fetch('../webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'action=create_room&stream_id=<?php echo $current_stream['id']; ?>'
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    roomId = data.room_id;
+                    console.log('WebRTC room created:', roomId);
+                    
+                    // Start polling for messages
+                    startMessagePolling();
+                } else {
+                    console.error('Failed to create WebRTC room:', data.error);
+                }
+            } catch (error) {
+                console.error('Error initializing WebRTC:', error);
+            }
+            <?php endif; ?>
+        }
+
+        // Start polling for WebRTC messages
+        function startMessagePolling() {
+            messagePollingInterval = setInterval(async () => {
+                if (!roomId) return;
+                
+                try {
+                    const response = await fetch('../webrtc_server.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `action=get_messages&room_id=${roomId}&last_id=${lastMessageId}`
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success && data.messages.length > 0) {
+                        data.messages.forEach(message => {
+                            handleWebRTCMessage(message);
+                            lastMessageId = Math.max(lastMessageId, message.id);
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error polling messages:', error);
+                }
+            }, 1000); // Poll every second
+        }
+
+        // Handle incoming WebRTC messages
+        function handleWebRTCMessage(message) {
+            const data = JSON.parse(message.message_data);
+            
+            switch (message.message_type) {
+                case 'offer':
+                    handleOffer(data);
+                    break;
+                case 'answer':
+                    handleAnswer(data);
+                    break;
+                case 'candidate':
+                    handleCandidate(data);
+                    break;
+            }
+        }
+
+        // Handle incoming offer
+        async function handleOffer(offer) {
+            if (!peerConnection) {
+                createPeerConnection();
+            }
+            
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                // Send answer back
+                await fetch('../webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=send_answer&room_id=${roomId}&answer=${encodeURIComponent(JSON.stringify(answer))}`
+                });
+            } catch (error) {
+                console.error('Error handling offer:', error);
+            }
+        }
+
+        // Handle incoming answer
+        async function handleAnswer(answer) {
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (error) {
+                console.error('Error handling answer:', error);
+            }
+        }
+
+        // Handle incoming ICE candidate
+        async function handleCandidate(candidate) {
+            try {
+                if (peerConnection) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+            } catch (error) {
+                console.error('Error handling candidate:', error);
+            }
+        }
+
+        // Create peer connection
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(configuration);
+            
+            // Add local stream to peer connection
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+            }
+            
+            // Handle ICE candidates
+            peerConnection.onicecandidate = async (event) => {
+                if (event.candidate) {
+                    try {
+                        await fetch('../webrtc_server.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `action=send_candidate&room_id=${roomId}&candidate=${encodeURIComponent(JSON.stringify(event.candidate))}`
+                        });
+                    } catch (error) {
+                        console.error('Error sending candidate:', error);
+                    }
+                }
+            };
+            
+            // Handle connection state changes
+            peerConnection.onconnectionstatechange = () => {
+                console.log('Connection state:', peerConnection.connectionState);
+                const statusElement = document.getElementById('connectionStatus');
+                
+                if (statusElement) {
+                    switch (peerConnection.connectionState) {
+                        case 'new':
+                            statusElement.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i> Initializing...';
+                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-info text-white rounded';
+                            statusElement.style.display = 'block';
+                            break;
+                        case 'connecting':
+                            statusElement.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i> Connecting...';
+                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-warning text-dark rounded';
+                            statusElement.style.display = 'block';
+                            break;
+                        case 'connected':
+                            statusElement.innerHTML = '<i class="fas fa-check me-1"></i> Connected';
+                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-success text-white rounded';
+                            setTimeout(() => {
+                                statusElement.style.display = 'none';
+                            }, 3000);
+                            break;
+                        case 'disconnected':
+                            statusElement.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Disconnected';
+                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-danger text-white rounded';
+                            statusElement.style.display = 'block';
+                            break;
+                        case 'failed':
+                            statusElement.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Connection Failed';
+                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-danger text-white rounded';
+                            statusElement.style.display = 'block';
+                            break;
+                        case 'closed':
+                            statusElement.style.display = 'none';
+                            break;
+                    }
+                }
+            };
+            
+            // Handle ICE connection state changes
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('ICE connection state:', peerConnection.iceConnectionState);
+            };
+        }
+
+        // Create offer for clients to connect
+        async function createOffer() {
+            if (!peerConnection) {
+                createPeerConnection();
+            }
+            
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                // Send offer to signaling server
+                await fetch('../webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=send_offer&room_id=${roomId}&offer=${encodeURIComponent(JSON.stringify(offer))}`
+                });
+            } catch (error) {
+                console.error('Error creating offer:', error);
             }
         }
 
@@ -767,6 +1006,18 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
         // Clean up when page unloads
         window.addEventListener('beforeunload', function() {
             stopCamera();
+            if (messagePollingInterval) {
+                clearInterval(messagePollingInterval);
+            }
+            if (roomId) {
+                fetch('../webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=leave_room&room_id=${roomId}`
+                });
+            }
         });
     </script>
 </body>

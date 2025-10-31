@@ -346,7 +346,16 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
                         <div class="viewer-count">
                             <i class="fas fa-eye me-1"></i><?php echo $stream['current_viewers']; ?> watching
                         </div>
-                        <i class="fas fa-video"></i>
+                        <!-- Remote video element for WebRTC streaming -->
+                        <video id="remoteVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                        <!-- Fallback content when video is not available -->
+                        <div id="videoFallback" class="text-center" style="width: 100%; display: none;">
+                            <div class="mb-3">
+                                <i class="fas fa-video fa-3x mb-3"></i>
+                                <h4>Connecting to Live Stream...</h4>
+                                <p class="text-muted">Establishing connection to seller's video feed</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -487,7 +496,251 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Auto-scroll chat to bottom
+        let peerConnection = null;
+        let remoteStream = null;
+        let roomId = null;
+        let messagePollingInterval = null;
+        let lastMessageId = 0;
+        let localStream = null;
+
+        // WebRTC configuration
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            <?php if ($stream['is_live']): ?>
+                initializeWebRTC();
+            <?php endif; ?>
+        });
+
+        // Initialize WebRTC for client
+        async function initializeWebRTC() {
+            <?php if ($stream['is_live']): ?>
+            try {
+                // Join room for this stream
+                roomId = 'room_<?php echo $stream_id; ?>_<?php echo strtotime($stream['started_at']); ?>';
+                
+                const response = await fetch('webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=join_room&room_id=${roomId}`
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    console.log('Joined WebRTC room:', roomId);
+                    
+                    // Create peer connection
+                    createPeerConnection();
+                    
+                    // Start polling for messages
+                    startMessagePolling();
+                } else {
+                    console.error('Failed to join WebRTC room:', data.error);
+                }
+            } catch (error) {
+                console.error('Error initializing WebRTC:', error);
+            }
+            <?php endif; ?>
+        }
+
+        // Create peer connection
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(configuration);
+            
+            // Handle remote stream
+            peerConnection.ontrack = (event) => {
+                console.log('Received remote stream');
+                const videoElement = document.getElementById('remoteVideo');
+                const fallbackElement = document.getElementById('videoFallback');
+                if (videoElement) {
+                    videoElement.srcObject = event.streams[0];
+                    videoElement.style.display = 'block';
+                    if (fallbackElement) {
+                        fallbackElement.style.display = 'none';
+                    }
+                }
+            };
+            
+            // Handle ICE candidates
+            peerConnection.onicecandidate = async (event) => {
+                if (event.candidate) {
+                    try {
+                        await fetch('webrtc_server.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `action=send_candidate&room_id=${roomId}&candidate=${encodeURIComponent(JSON.stringify(event.candidate))}`
+                        });
+                    } catch (error) {
+                        console.error('Error sending candidate:', error);
+                    }
+                }
+            };
+            
+            // Handle connection state changes
+            peerConnection.onconnectionstatechange = () => {
+                console.log('Connection state:', peerConnection.connectionState);
+                const videoElement = document.getElementById('remoteVideo');
+                const fallbackElement = document.getElementById('videoFallback');
+                
+                if (peerConnection.connectionState === 'connected') {
+                    if (videoElement) videoElement.style.display = 'block';
+                    if (fallbackElement) fallbackElement.style.display = 'none';
+                } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
+                    if (videoElement) videoElement.style.display = 'none';
+                    if (fallbackElement) {
+                        fallbackElement.style.display = 'block';
+                        fallbackElement.innerHTML = `
+                            <div class="mb-3">
+                                <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                                <h4>Connection Lost</h4>
+                                <p class="text-muted">Unable to connect to the live stream. Please try again.</p>
+                                <button class="btn btn-primary" onclick="initializeWebRTC()">Retry Connection</button>
+                            </div>
+                        `;
+                    }
+                }
+            };
+            
+            // Handle ICE connection state changes
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('ICE connection state:', peerConnection.iceConnectionState);
+            };
+        }
+
+        // Start polling for WebRTC messages
+        function startMessagePolling() {
+            messagePollingInterval = setInterval(async () => {
+                if (!roomId) return;
+                
+                try {
+                    const response = await fetch('webrtc_server.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `action=get_messages&room_id=${roomId}&last_id=${lastMessageId}`
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success && data.messages.length > 0) {
+                        data.messages.forEach(message => {
+                            handleWebRTCMessage(message);
+                            lastMessageId = Math.max(lastMessageId, message.id);
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error polling messages:', error);
+                }
+            }, 1000); // Poll every second
+        }
+
+        // Handle incoming WebRTC messages
+        function handleWebRTCMessage(message) {
+            const data = JSON.parse(message.message_data);
+            
+            switch (message.message_type) {
+                case 'offer':
+                    handleOffer(data);
+                    break;
+                case 'answer':
+                    handleAnswer(data);
+                    break;
+                case 'candidate':
+                    handleCandidate(data);
+                    break;
+            }
+        }
+
+        // Handle incoming offer from seller
+        async function handleOffer(offer) {
+            if (!peerConnection) {
+                createPeerConnection();
+            }
+            
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                // Send answer back to seller
+                await fetch('webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=send_answer&room_id=${roomId}&answer=${encodeURIComponent(JSON.stringify(answer))}`
+                });
+            } catch (error) {
+                console.error('Error handling offer:', error);
+            }
+        }
+
+        // Handle incoming answer from seller
+        async function handleAnswer(answer) {
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (error) {
+                console.error('Error handling answer:', error);
+            }
+        }
+
+        // Handle incoming ICE candidate
+        async function handleCandidate(candidate) {
+            try {
+                if (peerConnection) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+            } catch (error) {
+                console.error('Error handling candidate:', error);
+            }
+        }
+
+        // Send offer to connect to seller
+        async function sendOffer() {
+            if (!peerConnection) {
+                createPeerConnection();
+            }
+            
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                // Send offer to seller
+                await fetch('webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=send_offer&room_id=${roomId}&offer=${encodeURIComponent(JSON.stringify(offer))}`
+                });
+            } catch (error) {
+                console.error('Error creating offer:', error);
+            }
+        }
+
+        // Update chat functionality
+        function loadMessages() {
+            const inquiryId = <?php echo $inquiry_id ?? 'null'; ?>;
+            if (inquiryId) {
+                fetch('get_inquiry_messages.php?inquiry_id=' + inquiryId)
+                    .then(response => response.text())
+                    .then(html => {
+                        document.getElementById('chatMessages').innerHTML = html;
+                        scrollChatToBottom();
+                    });
+            }
+        }
+
         function scrollChatToBottom() {
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -521,11 +774,21 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
             });
         });
 
-        // Simulate real-time chat updates (in a real app, this would use WebSockets)
-        function simulateChatUpdate() {
-            // This would be replaced with WebSocket or Server-Sent Events
-            // for real-time chat updates
-        }
+        // Clean up when page unloads
+        window.addEventListener('beforeunload', function() {
+            if (messagePollingInterval) {
+                clearInterval(messagePollingInterval);
+            }
+            if (roomId) {
+                fetch('webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=leave_room&room_id=${roomId}`
+                });
+            }
+        });
     </script>
 </body>
 </html>

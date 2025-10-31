@@ -363,11 +363,10 @@ if (empty($streams)) {
                 <div class="col-lg-8">
                     <h1 class="display-4 fw-bold mb-3">Live Shopping Streams</h1>
                     <p class="lead mb-4">Watch live product demonstrations, interact with sellers, and shop in real-time with exclusive live stream deals.</p>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Looking for products from live sellers?</strong> 
-                        <a href="live.php" class="text-white fw-bold text-decoration-underline">Visit our new Live Shopping page</a> 
-                        to see products from sellers who are currently live streaming.
+                    <div class="alert alert-success">
+                        <i class="fas fa-video me-2"></i>
+                        <strong>WebRTC Streaming:</strong> 
+                        This platform now supports actual video streaming using WebRTC technology. Join streams to see real-time video from sellers.
                     </div>
                     <?php if ($is_logged_in && $user_role === 'seller'): ?>
                         <a href="seller/live_stream.php" class="btn btn-light btn-lg">

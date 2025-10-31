@@ -318,6 +318,22 @@ function getStatusOptions($current_status) {
             color: white;
             font-weight: bold;
         }
+        
+        .order-item {
+            padding: 10px;
+            border-bottom: 1px solid #e3e6f0;
+            transition: all 0.3s;
+        }
+        
+        .order-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        /* Remove top margin on mobile nav */
+        .offcanvas-header {
+            margin-top: 0 !important;
+        }
     </style>
 </head>
 <body>
@@ -328,6 +344,11 @@ function getStatusOptions($current_status) {
                 <i class="fas fa-store me-2"></i>
                 <strong>BSDO Seller</strong>
             </a>
+            
+            <!-- Mobile menu button -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
             
             <div class="d-flex align-items-center">
                 <div class="dropdown">
@@ -350,7 +371,7 @@ function getStatusOptions($current_status) {
 
     <div class="container-fluid">
         <div class="row">
-            <!-- Sidebar -->
+            <!-- Desktop Sidebar (hidden on mobile) -->
             <div class="col-lg-2 sidebar d-none d-lg-block">
                 <div class="pt-4">
                     <ul class="nav flex-column">
@@ -365,10 +386,10 @@ function getStatusOptions($current_status) {
                             </a>
                         </li>
                         <li class="nav-item">
-    <a class="nav-link" href="rental_products.php">
-        <i class="fas fa-calendar-alt me-2"></i>Rental Products
-    </a>
-</li>
+                            <a class="nav-link" href="rental_products.php">
+                                <i class="fas fa-calendar-alt me-2"></i>Rental Products
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link active" href="orders.php">
                                 <i class="fas fa-shopping-cart me-2"></i>Orders
@@ -382,6 +403,58 @@ function getStatusOptions($current_status) {
                         <li class="nav-item">
                             <a class="nav-link" href="profile.php">
                                 <i class="fas fa-user me-2"></i>Profile
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="settings.php">
+                                <i class="fas fa-cog me-2"></i>Settings
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Mobile Sidebar (Offcanvas) -->
+            <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
+                <div class="offcanvas-header sidebar">
+                    <h5 class="offcanvas-title text-white" id="mobileSidebarLabel">Seller Menu</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+                <div class="offcanvas-body sidebar">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="dashboard.php">
+                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="products.php">
+                                <i class="fas fa-box me-2"></i>Products
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="rental_products.php">
+                                <i class="fas fa-calendar-alt me-2"></i>Rental Products
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="orders.php">
+                                <i class="fas fa-shopping-cart me-2"></i>Orders
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="analytics.php">
+                                <i class="fas fa-chart-bar me-2"></i>Analytics
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="profile.php">
+                                <i class="fas fa-user me-2"></i>Profile
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="settings.php">
+                                <i class="fas fa-cog me-2"></i>Settings
                             </a>
                         </li>
                         <li class="nav-item">

@@ -463,8 +463,13 @@ function getStatusBadge($status) {
         }
         
         .product-list-container {
-            max-height: 400px;
+            max-height: 500px;
             overflow-y: auto;
+        }
+        
+        /* Remove top margin on mobile nav */
+        .offcanvas-header {
+            margin-top: 0 !important;
         }
     </style>
 </head>
@@ -476,6 +481,10 @@ function getStatusBadge($status) {
                 <i class="fas fa-video me-2"></i>
                 <strong>BSDO Live Streaming</strong>
             </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
             
             <div class="d-flex align-items-center">
                 <div class="dropdown">
@@ -497,66 +506,27 @@ function getStatusBadge($status) {
     </nav>
 
     <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-lg-2 sidebar d-none d-lg-block">
-                <div class="pt-4">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link" href="dashboard.php">
-                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="products.php">
-                                <i class="fas fa-box me-2"></i>Products
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="orders.php">
-                                <i class="fas fa-shopping-cart me-2"></i>Orders
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="analytics.php">
-                                <i class="fas fa-chart-bar me-2"></i>Analytics
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" href="live_stream.php">
-                                <i class="fas fa-video me-2"></i>Go Live
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="profile.php">
-                                <i class="fas fa-user me-2"></i>Profile
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="../logout.php">
-                                <i class="fas fa-sign-out-alt me-2"></i>Logout
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+        <!-- WebRTC Info Notice -->
+        <div class="alert alert-info mx-4 mt-4">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>WebRTC Streaming Available:</strong> This interface supports actual video streaming. 
+            <a href="live_stream_webrtc.php?stream_id=<?php echo $stream_id; ?>" class="alert-link ms-2">Use WebRTC version</a>
+        </div>
+        
+        <!-- Alerts -->
+        <?php if (isset($success_message)): ?>
+            <div class="alert alert-success alert-dismissible fade show mx-4" role="alert">
+                <?php echo $success_message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
-
-            <!-- Main Content -->
-            <div class="col-lg-10 col-md-12 p-4">
-                <!-- Alerts -->
-                <?php if (isset($success_message)): ?>
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <?php echo $success_message; ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-                
-                <?php if (isset($error_message)): ?>
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <?php echo $error_message; ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
+        <?php endif; ?>
+        
+        <?php if (isset($error_message)): ?>
+            <div class="alert alert-danger alert-dismissible fade show mx-4" role="alert">
+                <?php echo $error_message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
 
                 <!-- Current Stream Section -->
                 <?php if ($current_stream): ?>
