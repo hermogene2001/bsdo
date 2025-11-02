@@ -579,6 +579,11 @@ function getSortIcon($column, $current_sort, $current_order) {
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
+            <!-- Mobile menu button -->
+            <button class="btn btn-link text-white d-lg-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar">
+                <i class="fas fa-bars"></i>
+            </button>
+
             <a class="navbar-brand" href="dashboard.php">
                 <i class="fas fa-store me-2"></i>
                 <strong>BSDO Seller</strong>
@@ -602,6 +607,53 @@ function getSortIcon($column, $current_sort, $current_order) {
             </div>
         </div>
     </nav>
+
+    <!-- Mobile Sidebar -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title">Menu</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link" href="dashboard.php">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="products.php">
+                        <i class="fas fa-box me-2"></i>Products
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="rental_products.php">
+                        <i class="fas fa-calendar-alt me-2"></i>Rental Products
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="orders.php">
+                        <i class="fas fa-shopping-cart me-2"></i>Orders
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="live_stream.php">
+                        <i class="fas fa-video me-2"></i>Live Stream
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="analytics.php">
+                        <i class="fas fa-chart-bar me-2"></i>Analytics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="settings.php">
+                        <i class="fas fa-cog me-2"></i>Settings
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
 
     <div class="container-fluid">
         <div class="row">
