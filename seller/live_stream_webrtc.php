@@ -366,6 +366,33 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
             max-height: 500px;
             overflow-y: auto;
         }
+        
+        /* Quick response buttons */
+        .quick-response-buttons {
+            position: absolute;
+            top: -30px;
+            right: 5px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 5px;
+            padding: 5px;
+            z-index: 100;
+        }
+        
+        .quick-response-buttons .btn {
+            padding: 2px 8px;
+            font-size: 0.7rem;
+        }
+        
+        /* New message highlight animation */
+        @keyframes newMessageHighlight {
+            0% { background-color: rgba(28, 200, 138, 0.5); }
+            50% { background-color: rgba(28, 200, 138, 0.8); }
+            100% { background-color: rgba(255, 255, 255, 0.1); }
+        }
+        
+        .new-message-highlight {
+            animation: newMessageHighlight 2s ease-in-out;
+        }
     </style>
 </head>
 <body>
@@ -447,6 +474,48 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
                 
                 <div class="col-lg-4">
+                    <!-- Client Messages Section -->
+                    <div class="mb-4">
+                        <h5 class="mb-3">Client Messages <span id="newMessageBadge" class="badge bg-danger" style="display: none;">New</span></h5>
+                        <div class="card bg-dark text-white">
+                            <div class="card-body p-0">
+                                <div id="messagesContainer" class="p-3" style="max-height: 300px; overflow-y: auto;">
+                                    <!-- Messages will be loaded here dynamically -->
+                                    <div class="text-center text-muted py-3">
+                                        <i class="fas fa-comments fa-2x mb-2"></i>
+                                        <p>No messages yet</p>
+                                    </div>
+                                </div>
+                                <div class="border-top p-3">
+                                    <div class="input-group">
+                                        <input type="text" id="messageInput" class="form-control bg-dark text-white" placeholder="Type a response...">
+                                        <button class="btn btn-primary" id="sendMessageBtn" type="button">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                    <!-- Quick Responses Dropdown -->
+                                    <div class="dropdown mt-2">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="quickResponsesDropdown" data-bs-toggle="dropdown">
+                                            Quick Responses
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="quickResponsesDropdown">
+                                            <li><a class="dropdown-item" href="#" onclick="sendQuickResponse('Thanks for your question!')">Thanks for your question!</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="sendQuickResponse('Great question!')">Great question!</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="sendQuickResponse('We have limited stock available!')">We have limited stock available!</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="sendQuickResponse('This product is on special discount during this live stream!')">Special discount!</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="sendQuickResponse('Please check the product details section for more information.')">Check product details</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="sendQuickResponse('We ship worldwide!')">We ship worldwide!</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="sendQuickResponse('Yes, we offer a 30-day money-back guarantee.')">30-day money-back guarantee</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="sendQuickResponse('This item is currently in stock and ready to ship.')">In stock and ready to ship</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item" href="#" onclick="focusOnMessageInput()">Custom Response</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Featured Products Section -->
                     <div class="mb-4">
                         <h5 class="mb-3">Featured Products</h5>
@@ -997,17 +1066,250 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
             }
         }
 
+        // Message system functions
+        let messageCheckInterval = null;
+        let lastCommentId = 0;
+
+        // Start polling for client messages
+        function startMessagePolling() {
+            messageCheckInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`../check_streams_detail.php?stream_id=<?php echo $current_stream['id']; ?>&last_comment_id=${lastCommentId}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.comments && data.comments.length > 0) {
+                        displayMessages(data.comments);
+                        // Update last comment ID to the highest ID we've seen
+                        const maxId = Math.max(...data.comments.map(comment => comment.id));
+                        if (maxId > lastCommentId) {
+                            lastCommentId = maxId;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching messages:', error);
+                }
+            }, 3000); // Poll every 3 seconds
+        }
+
+        // Display messages in the chat container
+        function displayMessages(comments) {
+            const container = document.getElementById('messagesContainer');
+            const badge = document.getElementById('newMessageBadge');
+            
+            // If this is the first message, clear the "no messages" placeholder
+            if (container.querySelector('.text-center')) {
+                container.innerHTML = '';
+            }
+            
+            let hasNewMessages = false;
+            let newClientMessages = 0;
+            
+            comments.forEach(comment => {
+                // Only add messages we haven't seen yet
+                if (comment.id > lastCommentId) {
+                    hasNewMessages = true;
+                    if (!comment.is_seller) {
+                        newClientMessages++;
+                    }
+                    
+                    const messageElement = document.createElement('div');
+                    messageElement.className = 'mb-3 p-2 rounded position-relative';
+                    
+                    // Style differently based on sender
+                    if (comment.is_seller) {
+                        messageElement.style.backgroundColor = 'rgba(78, 115, 223, 0.3)';
+                        messageElement.style.borderLeft = '3px solid #4e73df';
+                    } else {
+                        messageElement.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                        messageElement.style.borderLeft = '3px solid #1cc88a';
+                        // Add highlight class for new client messages
+                        messageElement.classList.add('new-message-highlight');
+                    }
+                    
+                    messageElement.dataset.commentId = comment.id;
+                    
+                    const senderName = comment.first_name ? 
+                        `${comment.first_name} ${comment.last_name || ''}` : 
+                        'Anonymous User';
+                    
+                    // Create quick response buttons for client messages
+                    const quickResponseButtons = !comment.is_seller ? `
+                        <div class="quick-response-buttons mt-2" style="display: none;">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="sendQuickResponse('Thanks for your question!')">Thanks</button>
+                            <button class="btn btn-sm btn-outline-success me-1" onclick="sendQuickResponse('Great question!')">Great Q</button>
+                            <button class="btn btn-sm btn-outline-info" onclick="focusOnMessageInput()">Custom</button>
+                        </div>
+                    ` : '';
+                    
+                    messageElement.innerHTML = `
+                        <div class="d-flex justify-content-between">
+                            <strong class="${comment.is_seller ? 'text-white' : 'text-primary'}">
+                                ${comment.is_seller ? 'You (Seller)' : senderName}
+                            </strong>
+                            <small class="text-muted">${formatTime(comment.created_at)}</small>
+                        </div>
+                        <div class="mt-1">${comment.comment}</div>
+                        ${quickResponseButtons}
+                    `;
+                    
+                    // Add hover effect to show quick response buttons for client messages
+                    if (!comment.is_seller) {
+                        messageElement.addEventListener('mouseenter', function() {
+                            const buttons = this.querySelector('.quick-response-buttons');
+                            if (buttons) buttons.style.display = 'block';
+                        });
+                        
+                        messageElement.addEventListener('mouseleave', function() {
+                            const buttons = this.querySelector('.quick-response-buttons');
+                            if (buttons) buttons.style.display = 'none';
+                        });
+                    }
+                    
+                    container.appendChild(messageElement);
+                }
+            });
+            
+            // Show badge and update count if there are new client messages
+            if (newClientMessages > 0) {
+                // Play notification sound for new client messages
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 800;
+                    gainNode.gain.value = 0.3;
+                    
+                    oscillator.start();
+                    setTimeout(() => {
+                        oscillator.stop();
+                    }, 200);
+                } catch (e) {
+                    // Audio not supported, silently fail
+                }
+                
+                badge.textContent = newClientMessages > 1 ? `${newClientMessages} New` : 'New';
+                badge.style.display = 'inline';
+                
+                // Hide badge after 5 seconds
+                setTimeout(() => {
+                    badge.style.display = 'none';
+                }, 5000);
+            }
+            
+            // Scroll to bottom if we have new messages
+            if (hasNewMessages) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        // Send a quick response
+        async function sendQuickResponse(responseText) {
+            const input = document.getElementById('messageInput');
+            input.value = responseText;
+            await sendMessage();
+        }
+
+        // Focus on message input for custom response
+        function focusOnMessageInput() {
+            const input = document.getElementById('messageInput');
+            input.focus();
+        }
+
+        // Send a message to clients
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'add_seller_comment');
+                formData.append('stream_id', <?php echo $current_stream['id']; ?>);
+                formData.append('comment', message);
+                
+                const response = await fetch('../check_streams_detail.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Clear input
+                    input.value = '';
+                    
+                    // Add our message to the display
+                    const container = document.getElementById('messagesContainer');
+                    
+                    // If this is the first message, clear the "no messages" placeholder
+                    if (container.querySelector('.text-center')) {
+                        container.innerHTML = '';
+                    }
+                    
+                    const messageElement = document.createElement('div');
+                    messageElement.className = 'mb-3 p-2 rounded';
+                    messageElement.style.backgroundColor = 'rgba(78, 115, 223, 0.3)';
+                    messageElement.style.borderLeft = '3px solid #4e73df';
+                    
+                    const now = new Date();
+                    messageElement.innerHTML = `
+                        <div class="d-flex justify-content-between">
+                            <strong class="text-white">You (Seller)</strong>
+                            <small class="text-muted">${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                        </div>
+                        <div class="mt-1">${message}</div>
+                    `;
+                    
+                    container.appendChild(messageElement);
+                    container.scrollTop = container.scrollHeight;
+                } else {
+                    alert('Failed to send message: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+                alert('Failed to send message. Please try again.');
+            }
+        }
+
+        // Format time for display
+        function formatTime(dateTimeString) {
+            const date = new Date(dateTimeString);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
         // Event listeners
         document.getElementById('startCamera').addEventListener('click', startCamera);
         document.getElementById('stopCamera').addEventListener('click', stopCamera);
         document.getElementById('switchCamera').addEventListener('click', switchCamera);
         document.getElementById('muteAudio').addEventListener('click', toggleMute);
+        
+        // Message system event listeners
+        document.getElementById('sendMessageBtn').addEventListener('click', sendMessage);
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Start polling for client messages
+        <?php if ($current_stream): ?>
+        startMessagePolling();
+        <?php endif; ?>
 
         // Clean up when page unloads
         window.addEventListener('beforeunload', function() {
             stopCamera();
             if (messagePollingInterval) {
                 clearInterval(messagePollingInterval);
+            }
+            if (messageCheckInterval) {
+                clearInterval(messageCheckInterval);
             }
             if (roomId) {
                 fetch('../webrtc_server.php', {
