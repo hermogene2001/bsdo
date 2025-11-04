@@ -1,0 +1,127 @@
+/* Live Stream Chat Styles */
+.live-chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.chat-input-container {
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.9);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-input {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.chat-input button {
+    padding: 0.5rem 1rem;
+    background: #0084ff;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.chat-message {
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.seller-message {
+    background: rgba(0, 132, 255, 0.2);
+}
+
+.message-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.username {
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+.seller-message .username {
+    color: #0084ff;
+}
+
+.timestamp {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.message-content {
+    word-break: break-word;
+}
+
+.message-actions {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.message-actions button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.message-actions button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.announcement {
+    background: rgba(255, 193, 7, 0.2);
+    border-left: 4px solid #ffc107;
+}
+
+.highlight {
+    background: rgba(76, 175, 80, 0.2);
+    border-left: 4px solid #4caf50;
+}
+
+.pinned {
+    border: 1px solid #0084ff;
+    position: relative;
+}
+
+.pinned::before {
+    content: "📌";
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+}

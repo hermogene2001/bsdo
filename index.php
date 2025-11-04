@@ -686,28 +686,28 @@ function getCategoryIcon($categoryName) {
     </section>
 
     <!-- Stats Section -->
-    <!-- <section class="stats-section">
-        <div class="container">
-            <div class="row text-center">
-                <div class="col-md-3 mb-4">
-                    <div class="stat-number text-primary"><?php echo number_format($stats['total_regular_products']); ?></div>
-                    <div class="text-muted">Regular Products</div>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <div class="stat-number text-warning"><?php echo number_format($stats['total_rental_products']); ?></div>
-                    <div class="text-muted">Rental Products</div>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <div class="stat-number text-success"><?php echo number_format($stats['total_sellers']); ?></div>
-                    <div class="text-muted">Active Sellers</div>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <div class="stat-number text-info"><?php echo number_format($stats['total_orders']); ?></div>
-                    <div class="text-muted">Completed Orders</div>
-                </div>
-            </div>
-        </div>
-    </section> -->
+    <!--<section class="stats-section">-->
+    <!--    <div class="container">-->
+    <!--        <div class="row text-center">-->
+    <!--            <div class="col-md-3 mb-4">-->
+    <!--                <div class="stat-number text-primary"><?php echo number_format($stats['total_regular_products']); ?></div>-->
+    <!--                <div class="text-muted">Regular Products</div>-->
+    <!--            </div>-->
+    <!--            <div class="col-md-3 mb-4">-->
+    <!--                <div class="stat-number text-warning"><?php echo number_format($stats['total_rental_products']); ?></div>-->
+    <!--                <div class="text-muted">Rental Products</div>-->
+    <!--            </div>-->
+    <!--            <div class="col-md-3 mb-4">-->
+    <!--                <div class="stat-number text-success"><?php echo number_format($stats['total_sellers']); ?></div>-->
+    <!--                <div class="text-muted">Active Sellers</div>-->
+    <!--            </div>-->
+    <!--            <div class="col-md-3 mb-4">-->
+    <!--                <div class="stat-number text-info"><?php echo number_format($stats['total_orders']); ?></div>-->
+    <!--                <div class="text-muted">Completed Orders</div>-->
+    <!--            </div>-->
+    <!--        </div>-->
+    <!--    </div>-->
+    <!--</section>-->
 
     <!-- Features Section -->
     <section id="features" class="py-5">

@@ -4,7 +4,13 @@ require_once 'config.php';
 
 // Check if user is logged in
 $is_logged_in = isset($_SESSION['user_id']);
-$user_id = $_SESSION['user_id'] ?? null;
+
+if (!$is_logged_in) {
+    header('Location: login.php');
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'] ?? '';
 
 // Get stream ID from URL
@@ -36,39 +42,30 @@ if (!$stream) {
 }
 
 // Handle viewer tracking
-if ($is_logged_in) {
-    // Check if user is already viewing
-    $viewer_check = $pdo->prepare("
-        SELECT id FROM live_stream_viewers 
-        WHERE stream_id = ? AND user_id = ? AND is_active = 1
-    ");
-    $viewer_check->execute([$stream_id, $user_id]);
-    
-    if ($viewer_check->rowCount() == 0) {
-        // Add viewer
-        $add_viewer = $pdo->prepare("
-            INSERT INTO live_stream_viewers (stream_id, user_id, session_id, ip_address) 
-            VALUES (?, ?, ?, ?)
-        ");
-        $add_viewer->execute([$stream_id, $user_id, session_id(), $_SERVER['REMOTE_ADDR']]);
-    }
-} else {
-    // Track anonymous viewer
-    $session_id = session_id();
-    $viewer_check = $pdo->prepare("
-        SELECT id FROM live_stream_viewers 
-        WHERE stream_id = ? AND session_id = ? AND is_active = 1
-    ");
-    $viewer_check->execute([$stream_id, $session_id]);
-    
-    if ($viewer_check->rowCount() == 0) {
-        $add_viewer = $pdo->prepare("
-            INSERT INTO live_stream_viewers (stream_id, user_id, session_id, ip_address) 
-            VALUES (?, NULL, ?, ?)
-        ");
-        $add_viewer->execute([$stream_id, $session_id, $_SERVER['REMOTE_ADDR']]);
-    }
-}
+$session_id = session_id();
+
+// First, mark any previous active sessions for this user/session as inactive
+$update_old_sessions = $pdo->prepare("
+    UPDATE live_stream_viewers 
+    SET is_active = 0, left_at = NOW() 
+    WHERE (user_id = ? OR session_id = ?) 
+    AND stream_id = ? 
+    AND is_active = 1
+");
+$update_old_sessions->execute([$user_id, $session_id, $stream_id]);
+
+// Add new viewer record
+$add_viewer = $pdo->prepare("
+    INSERT INTO live_stream_viewers 
+    (stream_id, user_id, session_id, ip_address, joined_at, is_active) 
+    VALUES (?, ?, ?, ?, NOW(), 1)
+");
+$add_viewer->execute([
+    $stream_id,
+    $user_id,
+    $session_id,
+    $_SERVER['REMOTE_ADDR']
+]);
 
 // Handle comments
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_comment') {
@@ -195,6 +192,25 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
             padding: 8px 16px;
             border-radius: 20px;
             font-weight: bold;
+        }
+        
+        .connection-status {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        
+        .connection-status.connected {
+            background: rgba(40, 167, 69, 0.7);
+        }
+        
+        .connection-status.error {
+            background: rgba(220, 53, 69, 0.7);
         }
         
         .stream-info {
@@ -346,6 +362,9 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
                         <div class="viewer-count">
                             <i class="fas fa-eye me-1"></i><?php echo $stream['current_viewers']; ?> watching
                         </div>
+                        <div id="connectionStatus" class="connection-status">
+                            <i class="fas fa-spinner fa-spin me-1"></i>Connecting...
+                        </div>
                         <!-- Remote video element for WebRTC streaming -->
                         <video id="remoteVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
                         <!-- Fallback content when video is not available -->
@@ -495,13 +514,9 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="public/js/webrtc-client.js"></script>
     <script>
-        let peerConnection = null;
-        let remoteStream = null;
-        let roomId = null;
-        let messagePollingInterval = null;
-        let lastMessageId = 0;
-        let localStream = null;
+        let webrtcClient = null;
 
         // WebRTC configuration
         const configuration = {
@@ -514,7 +529,59 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
             <?php if ($stream['is_live']): ?>
-                initializeWebRTC();
+                // Check WebRTC support
+                if (!window.RTCPeerConnection) {
+                    const fallbackElement = document.getElementById('videoFallback');
+                    fallbackElement.style.display = 'block';
+                    fallbackElement.innerHTML = `
+                        <div class="mb-3">
+                            <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                            <h4>Browser Not Supported</h4>
+                            <p>Your browser doesn't support live streaming. Please use a modern browser like Chrome, Firefox, or Edge.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                webrtcClient = new WebRTCClient({
+                    streamId: <?php echo $stream_id; ?>,
+                    videoElement: document.getElementById('remoteVideo'),
+                    onStatusChange: (status, message) => {
+                        const fallbackElement = document.getElementById('videoFallback');
+                        const videoElement = document.getElementById('remoteVideo');
+                        
+                        switch(status) {
+                            case 'connecting':
+                                fallbackElement.style.display = 'block';
+                                videoElement.style.display = 'none';
+                                fallbackElement.innerHTML = `
+                                    <div class="mb-3">
+                                        <i class="fas fa-spinner fa-spin fa-3x mb-3"></i>
+                                        <h4>${message}</h4>
+                                    </div>
+                                `;
+                                break;
+                            case 'connected':
+                                fallbackElement.style.display = 'none';
+                                videoElement.style.display = 'block';
+                                break;
+                            case 'error':
+                            case 'closed':
+                                fallbackElement.style.display = 'block';
+                                videoElement.style.display = 'none';
+                                fallbackElement.innerHTML = `
+                                    <div class="mb-3">
+                                        <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                                        <h4>${message}</h4>
+                                        <button class="btn btn-primary mt-3" onclick="webrtcClient.init()">
+                                            Retry Connection
+                                        </button>
+                                    </div>
+                                `;
+                                break;
+                        }
+                    }
+                });
             <?php endif; ?>
         });
 

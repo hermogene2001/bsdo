@@ -1,0 +1,10 @@
+[03-Nov-2025 14:09:27 Europe/Berlin] PHP Fatal error:  Uncaught ValueError: strpos(): Argument #3 ($offset) must be contained in argument #1 ($haystack) in C:\xampp\htdocs\bsdo\webrtc_server.php:83
+Stack trace:
+#0 C:\xampp\htdocs\bsdo\webrtc_server.php(83): strpos('', '_', 5)
+#1 {main}
+  thrown in C:\xampp\htdocs\bsdo\webrtc_server.php on line 83
+[03-Nov-2025 14:09:57 Europe/Berlin] PHP Fatal error:  Uncaught ValueError: strpos(): Argument #3 ($offset) must be contained in argument #1 ($haystack) in C:\xampp\htdocs\bsdo\webrtc_server.php:83
+Stack trace:
+#0 C:\xampp\htdocs\bsdo\webrtc_server.php(83): strpos('', '_', 5)
+#1 {main}
+  thrown in C:\xampp\htdocs\bsdo\webrtc_server.php on line 83

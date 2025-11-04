@@ -45,14 +45,93 @@ $inquiries = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php"><i class="fas fa-store me-2"></i>BSDO Seller</a>
-            <div class="d-flex">
-                <a href="dashboard.php" class="btn btn-outline-light btn-sm">Back to Dashboard</a>
+            <!-- Mobile menu button -->
+            <button class="btn btn-link text-white d-lg-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <a class="navbar-brand" href="dashboard.php">
+                <i class="fas fa-store me-2"></i>
+                <strong>BSDO Seller</strong>
+            </a>
+            
+            <div class="d-flex align-items-center">
+                <div class="dropdown">
+                    <a class="nav-link dropdown-toggle text-white d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                        <div class="bg-white rounded-circle me-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                            <span class="text-primary fw-bold"><?php echo isset($seller_info) ? strtoupper(substr($seller_info['first_name'], 0, 1)) : 'S'; ?></span>
+                        </div>
+                        <span><?php echo isset($seller_info) ? htmlspecialchars($seller_info['first_name'] . ' ' . $seller_info['last_name']) : 'Seller'; ?></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i>Profile</a></li>
+                        <li><a class="dropdown-item" href="settings.php"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="../logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>
+
+    <!-- Mobile Sidebar -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title">Menu</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link" href="dashboard.php">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="products.php">
+                        <i class="fas fa-box me-2"></i>Products
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="rental_products.php">
+                        <i class="fas fa-calendar-alt me-2"></i>Rental Products
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="orders.php">
+                        <i class="fas fa-shopping-cart me-2"></i>Orders
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="live_stream.php">
+                        <i class="fas fa-video me-2"></i>Live Stream
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="analytics.php">
+                        <i class="fas fa-chart-bar me-2"></i>Analytics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="profile.php">
+                        <i class="fas fa-user me-2"></i>Profile
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="settings.php">
+                        <i class="fas fa-cog me-2"></i>Settings
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="inquiries.php">
+                        <i class="fas fa-comments me-2"></i>Inquiries
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
 
     <div class="container mt-5 pt-5">
         <div class="row">

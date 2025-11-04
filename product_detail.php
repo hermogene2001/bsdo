@@ -368,15 +368,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
                                                max="<?= min($product['stock'], 10) ?>" 
                                                class="form-control form-control-sm" style="width: 100px;">
                                     </div>
-                                    <button type="submit" name="add_to_cart" class="btn btn-regular btn-lg w-100 mb-2">
+                                    <button type="submit" name="add_to_cart" class="btn btn-regular btn-lg w-100">
                                         <i class="fas fa-cart-plus me-1"></i>Add to Cart
                                     </button>
                                 </form>
-                                <!-- Add inquiry button for regular products too -->
-                                <button class="btn btn-outline-primary btn-lg w-100" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
-                                        onclick="setInquiryProduct(<?= $product['id'] ?>, '<?= htmlspecialchars($product['name'], ENT_QUOTES) ?>')">
-                                    <i class="fas fa-question-circle me-1"></i>Ask About This Product
-                                </button>
                             <?php endif; ?>
                         <?php elseif (!$is_logged_in): ?>
                             <a href="#" class="btn btn-primary btn-lg w-100" data-bs-toggle="modal" data-bs-target="#loginModal">
@@ -471,53 +466,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
             document.getElementById('inquiryProductName').textContent = productName;
         }
         
-        // Handle inquiry submission
-        function submitInquiry() {
-            const productId = document.getElementById('inquiryProductId').value;
-            const message = document.getElementById('inquiryMessage').value.trim();
-            
-            if (!message) {
-                alert('Please enter your inquiry message');
-                return;
-            }
-            
-            // Disable submit button and show loading
-            const submitBtn = document.querySelector('#inquiryModal .btn-primary');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sending...';
-            submitBtn.disabled = true;
-            
-            // Send AJAX request
-            fetch('create_inquiry.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `product_id=${productId}&message=${encodeURIComponent(message)}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Close modal and show success
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('inquiryModal'));
-                    modal.hide();
-                    alert('Your inquiry has been sent successfully!');
-                    document.getElementById('inquiryMessage').value = '';
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while sending your inquiry');
-            })
-            .finally(() => {
-                // Re-enable submit button
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
-            });
-        }
-        
         // Auto-dismiss alerts after 5 seconds
         const alerts = document.querySelectorAll('.alert');
         alerts.forEach(alert => {
@@ -527,32 +475,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
             }, 5000);
         });
     </script>
-    
-    <!-- Inquiry Modal -->
-    <div class="modal fade" id="inquiryModal" tabindex="-1" aria-labelledby="inquiryModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="inquiryModalLabel">Ask About Product</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="inquiryProductId">
-                    <div class="mb-3">
-                        <label class="form-label">Product:</label>
-                        <div id="inquiryProductName" class="fw-bold"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="inquiryMessage" class="form-label">Your Question:</label>
-                        <textarea class="form-control" id="inquiryMessage" rows="4" placeholder="Enter your question about this product..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="submitInquiry()">Send Inquiry</button>
-                </div>
-            </div>
-        </div>
-    </div>
 </body>
 </html>

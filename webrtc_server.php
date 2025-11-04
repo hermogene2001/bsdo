@@ -1,11 +1,22 @@
 <?php
-// Simple WebRTC signaling server using PHP and AJAX polling
-// In a production environment, this would use WebSockets for better performance
-
+// WebRTC signaling server implementation
 session_start();
 require_once 'config.php';
 
 header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Enable error logging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/webrtc_error.log');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
 
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['error' => 'Unauthorized']);
@@ -30,20 +41,35 @@ try {
                 exit;
             }
             
-            // Create room in database (simplified approach)
+            // Clean up any existing room for this stream
+            $stmt = $pdo->prepare("DELETE FROM webrtc_messages WHERE room_id LIKE ?");
+            $stmt->execute(['room_' . $stream_id . '_%']);
+            
+            // Create new room
             $room_id = 'room_' . $stream_id . '_' . time();
             
             // Store room info in session for this user
             $_SESSION['webrtc_room'] = [
                 'room_id' => $room_id,
                 'stream_id' => $stream_id,
-                'created_at' => time()
+                'created_at' => time(),
+                'last_activity' => time()
             ];
+            
+            // Update stream connection status
+            $stmt = $pdo->prepare("UPDATE live_streams SET connection_status = 'connected' WHERE id = ?");
+            $stmt->execute([$stream_id]);
             
             echo json_encode([
                 'success' => true,
                 'room_id' => $room_id,
-                'stream_id' => $stream_id
+                'stream_id' => $stream_id,
+                'stun_servers' => [
+                    'urls' => [
+                        'stun:stun1.l.google.com:19302',
+                        'stun:stun2.l.google.com:19302'
+                    ]
+                ]
             ]);
             break;
             

@@ -273,6 +273,26 @@ function getGrowthIcon($value) {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
+        @media (max-width: 991.98px) {
+            .navbar-nav .nav-link {
+                color: rgba(255, 255, 255, 0.8) !important;
+                padding: 0.5rem 1rem;
+            }
+            .navbar-nav .nav-link:hover {
+                color: white !important;
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+            .navbar-nav .nav-link.active {
+                color: white !important;
+                background-color: rgba(255, 255, 255, 0.15);
+            }
+            #navbarNav {
+                margin-top: 1rem;
+                padding: 0.5rem;
+                background: var(--dark-color);
+            }
+        }
+        
         .sidebar {
             background-color: var(--dark-color);
             color: white;
@@ -316,14 +336,52 @@ function getGrowthIcon($value) {
         .stats-card.info { border-left-color: var(--info-color); }
         
         .chart-container {
-            position: relative;
             height: 300px;
-            width: 100%;
+            position: relative;
         }
         
-        /* Remove top margin on mobile nav */
-        .offcanvas-header {
-            margin-top: 0 !important;
+        .progress {
+            height: 8px;
+        }
+        
+        .analytics-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .metric-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .growth-badge {
+            font-size: 0.8em;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        .product-image {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+        
+        .no-data-placeholder {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+        
+        .no-data-placeholder i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
         }
     </style>
 </head>
@@ -335,12 +393,53 @@ function getGrowthIcon($value) {
                 <i class="fas fa-store me-2"></i>
                 <strong>BSDO Seller</strong>
             </a>
-            
+
             <!-- Mobile menu button -->
-            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar">
+            <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
+
+            <!-- Mobile navigation menu -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav d-lg-none">
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.php">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="products.php">
+                            <i class="fas fa-box me-2"></i>Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="rental_products.php">
+                            <i class="fas fa-calendar-alt me-2"></i>Rental Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="orders.php">
+                            <i class="fas fa-shopping-cart me-2"></i>Orders
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="analytics.php">
+                            <i class="fas fa-chart-bar me-2"></i>Analytics
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="profile.php">
+                            <i class="fas fa-user me-2"></i>Profile
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="settings.php">
+                            <i class="fas fa-cog me-2"></i>Settings
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
             <div class="d-flex align-items-center">
                 <div class="dropdown">
                     <a class="nav-link dropdown-toggle text-white d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
@@ -362,7 +461,7 @@ function getGrowthIcon($value) {
 
     <div class="container-fluid">
         <div class="row">
-            <!-- Desktop Sidebar (hidden on mobile) -->
+            <!-- Sidebar -->
             <div class="col-lg-2 sidebar d-none d-lg-block">
                 <div class="pt-4">
                     <ul class="nav flex-column">
@@ -396,53 +495,6 @@ function getGrowthIcon($value) {
         <i class="fas fa-calendar-alt me-2"></i>Rental Products
     </a>
 </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="../logout.php">
-                                <i class="fas fa-sign-out-alt me-2"></i>Logout
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Mobile Sidebar (Offcanvas) -->
-            <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
-                <div class="offcanvas-header sidebar">
-                    <h5 class="offcanvas-title text-white" id="mobileSidebarLabel">Seller Menu</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                </div>
-                <div class="offcanvas-body sidebar">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link" href="dashboard.php">
-                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="products.php">
-                                <i class="fas fa-box me-2"></i>Products
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="orders.php">
-                                <i class="fas fa-shopping-cart me-2"></i>Orders
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" href="analytics.php">
-                                <i class="fas fa-chart-bar me-2"></i>Analytics
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="profile.php">
-                                <i class="fas fa-user me-2"></i>Profile
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="rental_products.php">
-                                <i class="fas fa-calendar-alt me-2"></i>Rental Products
-                            </a>
-                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="../logout.php">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
