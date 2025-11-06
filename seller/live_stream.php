@@ -23,12 +23,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Generate unique stream key
                 $stream_key = 'stream_' . $seller_id . '_' . time() . '_' . bin2hex(random_bytes(8));
                 
+                // Generate invitation code
+                $invitation_code = bin2hex(random_bytes(8));
+                
                 try {
                     $stmt = $pdo->prepare("
-                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, status, scheduled_at) 
-                        VALUES (?, ?, ?, ?, ?, 'scheduled', ?)
+                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, invitation_enabled, status, scheduled_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, true, 'scheduled', ?)
                     ");
-                    $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key, $scheduled_at]);
+                    $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key, $invitation_code, $scheduled_at]);
                     $stream_id = $pdo->lastInsertId();
                     
                     // If no scheduled time, start immediately
@@ -46,6 +49,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit();
                 } catch (Exception $e) {
                     $error_message = "Failed to start stream: " . $e->getMessage();
+                }
+                break;
+            case 'revoke_invite':
+                // Revoke the invite code for a stream
+                $stream_id = intval($_POST['stream_id'] ?? 0);
+
+                // Verify stream belongs to seller
+                $stmt = $pdo->prepare("SELECT id FROM live_streams WHERE id = ? AND seller_id = ?");
+                $stmt->execute([$stream_id, $seller_id]);
+                if ($stmt->rowCount() === 0) {
+                    $error_message = 'Stream not found or access denied.';
+                } else {
+                    $update = $pdo->prepare("UPDATE live_streams SET invite_code = NULL, invite_expires_at = NULL WHERE id = ?");
+                    $update->execute([$stream_id]);
+                    $success_message = 'Invitation link revoked.';
                 }
                 break;
                 
@@ -129,6 +147,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
                 
+            case 'manage_invitation':
+                $stream_id = intval($_POST['stream_id']);
+                
+                // Verify stream belongs to seller
+                $stmt = $pdo->prepare("SELECT id FROM live_streams WHERE id = ? AND seller_id = ?");
+                $stmt->execute([$stream_id, $seller_id]);
+                if ($stmt->rowCount() > 0) {
+                    $action_type = $_POST['invitation_action'];
+                    
+                    if ($action_type === 'regenerate') {
+                        // Generate new invitation code
+                        $new_invitation_code = bin2hex(random_bytes(8));
+                        $update_stmt = $pdo->prepare("
+                            UPDATE live_streams 
+                            SET invitation_code = ?, invitation_enabled = true 
+                            WHERE id = ?
+                        ");
+                        $update_stmt->execute([$new_invitation_code, $stream_id]);
+                        $success_message = "Invitation code regenerated successfully!";
+                    } elseif ($action_type === 'toggle') {
+                        $enabled = isset($_POST['enabled']) ? 1 : 0;
+                        $update_stmt = $pdo->prepare("
+                            UPDATE live_streams 
+                            SET invitation_enabled = ? 
+                            WHERE id = ?
+                        ");
+                        $update_stmt->execute([$enabled, $stream_id]);
+                        $success_message = $enabled ? "Invitation requirement enabled!" : "Invitation requirement disabled!";
+                    }
+                } else {
+                    $error_message = "Stream not found or access denied.";
+                }
+                break;
+                
             case 'highlight_product':
                 $stream_id = intval($_POST['stream_id']);
                 $product_id = intval($_POST['product_id']);
@@ -160,6 +212,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error_message = "Stream not found or access denied.";
                 }
                 break;
+                
+            case 'generate_invite':
+                // Create an invitation token for a stream so sellers can share a link with clients
+                $stream_id = intval($_POST['stream_id'] ?? 0);
+
+                // Verify stream belongs to seller
+                $stmt = $pdo->prepare("SELECT id, is_live, invite_code, invite_expires_at FROM live_streams WHERE id = ? AND seller_id = ?");
+                $stmt->execute([$stream_id, $seller_id]);
+                $stream_check = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$stream_check) {
+                    $error_message = 'Stream not found or access denied.';
+                } else {
+                    // Always allow regeneration of invitation links, even during live sessions
+                    // Generate a unique invite code
+                    $invite_code = bin2hex(random_bytes(10));
+
+                    // Optional: allow seller to set expiry in hours, default to 24 hours
+                    $expiry_hours = intval($_POST['invite_expiry_hours'] ?? 24);
+                    if ($expiry_hours <= 0 || $expiry_hours > 168) { // max 7 days
+                        $expiry_hours = 24;
+                    }
+                    $expires_at = (new DateTime('now', new DateTimeZone('UTC')))->modify("+{$expiry_hours} hours")->format('Y-m-d H:i:s');
+
+                    // Save invite code and expiry to the stream
+                    $update = $pdo->prepare("UPDATE live_streams SET invite_code = ?, invite_expires_at = ?, invitation_enabled = 1 WHERE id = ?");
+                    $update->execute([$invite_code, $expires_at, $stream_id]);
+
+                    // Build the public invitation URL
+                    $invite_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https://" : "http://") . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/../watch_stream.php?invite=" . $invite_code;
+
+                    $success_message = 'Invitation link generated successfully!';
+                    // Provide the invite URL and expiry to the template
+                    $generated_invite = $invite_url;
+                    $generated_invite_expires_at = $expires_at;
+                }
+                break;
         }
     }
 }
@@ -170,7 +259,8 @@ $stream_id = intval($_GET['stream_id'] ?? 0);
 
 if ($stream_id) {
     $current_stream_stmt = $pdo->prepare("
-        SELECT ls.*, c.name as category_name, COUNT(lsv.id) as current_viewers
+        SELECT ls.*, c.name as category_name, COUNT(lsv.id) as current_viewers,
+               ls.invite_code as invitation_code, ls.invitation_enabled, ls.invite_expires_at as invitation_expiry
         FROM live_streams ls
         LEFT JOIN categories c ON ls.category_id = c.id
         LEFT JOIN live_stream_viewers lsv ON ls.id = lsv.stream_id AND lsv.is_active = 1
@@ -207,7 +297,11 @@ if ($current_stream) {
 
 // Get seller's recent streams
 $recent_streams_stmt = $pdo->prepare("
-    SELECT ls.*, c.name as category_name, COUNT(lsv.id) as total_viewers
+    SELECT ls.*, c.name as category_name, 
+           COUNT(lsv.id) as total_viewers,
+           ls.invite_code as invitation_code,
+           ls.invitation_enabled,
+           ls.invite_expires_at as invitation_expiry
     FROM live_streams ls
     LEFT JOIN categories c ON ls.category_id = c.id
     LEFT JOIN live_stream_viewers lsv ON ls.id = lsv.stream_id
@@ -237,6 +331,22 @@ function getStatusBadge($status) {
         case 'cancelled': return '<span class="badge bg-dark">Cancelled</span>';
         default: return '<span class="badge bg-secondary">' . ucfirst($status) . '</span>';
     }
+}
+
+// New function to display invitation status
+function getInvitationStatus($stream) {
+    // Only show invitation status for non-ended streams
+    if ($stream['status'] !== 'ended' && !empty($stream['invitation_code'])) {
+        $expires_at = new DateTime($stream['invitation_expiry']);
+        $now = new DateTime();
+        
+        if ($expires_at > $now) {
+            return '<span class="badge bg-success ms-2">Invite Active</span>';
+        } else {
+            return '<span class="badge bg-secondary ms-2">Invite Expired</span>';
+        }
+    }
+    return '';
 }
 ?>
 
@@ -413,10 +523,36 @@ function getStatusBadge($status) {
         .stream-item {
             border-bottom: 1px solid #eee;
             padding: 15px 0;
+            position: relative;
         }
         
         .stream-item:last-child {
             border-bottom: none;
+        }
+
+        .stream-item .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            margin-left: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .stream-item .btn-sm:hover {
+            transform: translateY(-1px);
+        }
+
+        .stream-item form {
+            margin: 0;
+        }
+
+        .stream-item .badge {
+            font-size: 0.75rem;
+            padding: 0.35em 0.65em;
+        }
+
+        .invitation-controls {
+            gap: 0.25rem;
+            flex-wrap: nowrap;
         }
         
         .stream-thumbnail {
@@ -632,7 +768,59 @@ function getStatusBadge($status) {
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
                                             <span class="badge bg-primary me-2"><?php echo htmlspecialchars($current_stream['category_name'] ?? 'General'); ?></span>
+                                            <?php echo getInvitationStatus($current_stream); ?>
                                             <small class="text-muted">Started: <?php echo date('M j, Y g:i A', strtotime($current_stream['started_at'])); ?></small>
+                                            
+                                            <!-- Invitation Management Section -->
+                                            <div class="mt-4 border-top pt-3">
+                                                <h5><i class="fas fa-ticket-alt me-2"></i>Invitation Management</h5>
+                                                <div class="card bg-light">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                                            <div>
+                                                                <h6 class="mb-0">Invitation Code:</h6>
+                                                                <?php if ($current_stream['invitation_enabled']): ?>
+                                                                    <code class="fs-5"><?php echo htmlspecialchars($current_stream['invitation_code']); ?></code>
+                                                                <?php else: ?>
+                                                                    <span class="text-muted">Disabled</span>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                            <div class="form-check form-switch">
+                                                                <form method="POST" class="d-inline">
+                                                                    <input type="hidden" name="action" value="manage_invitation">
+                                                                    <input type="hidden" name="stream_id" value="<?php echo $current_stream['id']; ?>">
+                                                                    <input type="hidden" name="invitation_action" value="toggle">
+                                                                    <input type="checkbox" class="form-check-input" id="inviteEnabled" 
+                                                                           name="enabled" <?php echo $current_stream['invitation_enabled'] ? 'checked' : ''; ?>
+                                                                           onchange="this.form.submit()">
+                                                                    <label class="form-check-label" for="inviteEnabled">Enable Invites</label>
+                                                                </form>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div class="d-flex gap-2 mt-3">
+                                                            <form method="POST" class="d-inline">
+                                                                <input type="hidden" name="action" value="manage_invitation">
+                                                                <input type="hidden" name="stream_id" value="<?php echo $current_stream['id']; ?>">
+                                                                <input type="hidden" name="invitation_action" value="regenerate">
+                                                                <button type="submit" class="btn btn-outline-primary btn-sm">
+                                                                    <i class="fas fa-sync-alt me-1"></i>Regenerate Code
+                                                                </button>
+                                                            </form>
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                                                    onclick="copyInviteLink('<?php echo htmlspecialchars($current_stream['invitation_code']); ?>')">
+                                                                <i class="fas fa-copy me-1"></i>Copy Link
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        <div class="mt-3">
+                                                            <small class="text-muted">
+                                                                Share this code or link with your audience to join the live stream.
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div>
                                             <a href="live_stream.php" class="btn btn-return me-2">
@@ -645,6 +833,44 @@ function getStatusBadge($status) {
                                                     <i class="fas fa-stop me-2"></i>End Stream
                                                 </button>
                                             </form>
+
+                                            <!-- Generate Invitation Link -->
+                                            <form method="POST" class="d-inline">
+                                                <input type="hidden" name="action" value="generate_invite">
+                                                <input type="hidden" name="stream_id" value="<?php echo $current_stream['id']; ?>">
+                                                <div class="input-group d-inline-block me-2" style="width: 220px; vertical-align: middle;">
+                                                    <select name="invite_expiry_hours" class="form-select form-select-sm">
+                                                        <option value="1">Expire: 1 hour</option>
+                                                        <option value="3">Expire: 3 hours</option>
+                                                        <option value="6">Expire: 6 hours</option>
+                                                        <option value="12">Expire: 12 hours</option>
+                                                        <option value="24" selected>Expire: 24 hours</option>
+                                                        <option value="48">Expire: 48 hours</option>
+                                                        <option value="72">Expire: 72 hours</option>
+                                                        <option value="168">Expire: 7 days</option>
+                                                    </select>
+                                                </div>
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fas fa-link me-2"></i>Generate Invite Link
+                                                </button>
+                                            </form>
+                                            <?php if (!empty($current_stream['invitation_code'])): ?>
+                                                <div class="mt-2">
+                                                    <label class="small text-muted">Invite link:</label>
+                                                    <div class="d-flex align-items-center">
+                                                        <input type="text" id="inviteLink" class="form-control form-control-sm me-2" value="<?php echo htmlspecialchars((isset($generated_invite) ? $generated_invite : (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '/bsdo/watch_stream.php?invite=' . $current_stream['invitation_code'])); ?>" readonly>
+                                                        <button class="btn btn-sm btn-outline-secondary" onclick="copyInviteLink('<?php echo htmlspecialchars($current_stream['invitation_code']); ?>')"><i class="fas fa-copy"></i></button>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <small class="text-muted">Expires: <?php echo htmlspecialchars((isset($generated_invite_expires_at) ? $generated_invite_expires_at : ($current_stream['invitation_expiry'] ?? 'Never'))); ?></small>
+                                                    <form method="POST" class="d-inline ms-3">
+                                                        <input type="hidden" name="action" value="revoke_invite">
+                                                        <input type="hidden" name="stream_id" value="<?php echo $current_stream['id']; ?>">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger ms-2" onclick="return confirm('Revoke this invite link? Clients using the link will no longer be able to join.')">Revoke</button>
+                                                    </form>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -968,8 +1194,52 @@ function getStatusBadge($status) {
                                         <div class="flex-grow-1">
                                             <h6 class="mb-1"><?php echo htmlspecialchars($stream['title']); ?></h6>
                                             <p class="text-muted mb-1 small"><?php echo htmlspecialchars($stream['description']); ?></p>
-                                            <div class="d-flex align-items-center">
+                                            <div class="d-flex align-items-center flex-wrap">
                                                 <?php echo getStatusBadge($stream['status']); ?>
+                                                
+                                                <?php if ($stream['status'] !== 'ended'): ?>
+                                                    <?php if ($stream['status'] !== 'ended' && $stream['invitation_enabled']): ?>
+                                                        <span class="badge bg-success ms-2">
+                                                            <i class="fas fa-ticket-alt me-1"></i>Invite Required
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    
+                                                    <div class="ms-2">
+                                                        <?php if ($stream['invitation_code']): ?>
+                                                            <button type="button" 
+                                                                    class="btn btn-sm btn-outline-primary" 
+                                                                    onclick="copyInviteLink('<?php echo htmlspecialchars($stream['invitation_code']); ?>')"
+                                                                    title="Copy invitation link">
+                                                                <i class="fas fa-copy"></i>
+                                                            </button>
+                                                        <?php endif; ?>
+                                                        
+                                                        <form method="POST" class="d-inline">
+                                                            <input type="hidden" name="action" value="generate_invite">
+                                                            <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
+                                                            <input type="hidden" name="invite_expiry_hours" value="24">
+                                                            <button type="submit" 
+                                                                    class="btn btn-sm btn-outline-success" 
+                                                                    title="Generate/regenerate invitation link">
+                                                                <i class="fas fa-link"></i>
+                                                            </button>
+                                                        </form>
+                                                        
+                                                        <?php if ($stream['invitation_code']): ?>
+                                                            <form method="POST" class="d-inline">
+                                                                <input type="hidden" name="action" value="manage_invitation">
+                                                                <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
+                                                                <input type="hidden" name="invitation_action" value="toggle">
+                                                                <input type="hidden" name="enabled" value="<?php echo $stream['invitation_enabled'] ? '0' : '1'; ?>">
+                                                                <button type="submit" 
+                                                                        class="btn btn-sm <?php echo $stream['invitation_enabled'] ? 'btn-outline-danger' : 'btn-outline-success'; ?>"
+                                                                        title="<?php echo $stream['invitation_enabled'] ? 'Disable' : 'Enable'; ?> invitation requirement">
+                                                                    <i class="fas <?php echo $stream['invitation_enabled'] ? 'fa-lock-open' : 'fa-lock'; ?>"></i>
+                                                                </button>
+                                                            </form>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endif; ?>
                                                 <span class="ms-2 text-muted small">
                                                     <i class="fas fa-eye me-1"></i><?php echo $stream['total_viewers']; ?> viewers
                                                 </span>
@@ -1256,6 +1526,64 @@ function getStatusBadge($status) {
             });
             <?php endif; ?>
         });
+
+        // Copy invite link helper (seller)
+        async function copyInviteLink(inviteCode) {
+            const baseUrl = window.location.origin + '/bsdo/watch_stream.php?invite=';
+            const inviteLink = baseUrl + inviteCode;
+            
+            try {
+                await navigator.clipboard.writeText(inviteLink);
+                showCopySuccess('Link copied to clipboard!');
+            } catch (err) {
+                fallbackCopy(inviteLink);
+            }
+        }
+        
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            document.body.appendChild(textarea);
+            
+            try {
+                textarea.select();
+                document.execCommand('copy');
+                showCopySuccess();
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy invitation link. Please try again.');
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+        
+        function showCopySuccess(message = 'Link copied!') {
+            const msg = document.createElement('div');
+            msg.className = 'copy-success-message';
+            msg.innerHTML = '<i class="fas fa-check-circle me-2"></i>' + message;
+            msg.style.position = 'fixed';
+            msg.style.top = '20px';
+            msg.style.left = '50%';
+            msg.style.transform = 'translateX(-50%)';
+            msg.style.backgroundColor = '#28a745';
+            msg.style.color = 'white';
+            msg.style.padding = '10px 20px';
+            msg.style.borderRadius = '5px';
+            msg.style.zIndex = '9999';
+            msg.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+            msg.style.opacity = '1';
+            msg.style.transition = 'opacity 0.3s ease';
+            
+            document.body.appendChild(msg);
+            
+            setTimeout(() => {
+                msg.style.opacity = '0';
+                setTimeout(() => document.body.removeChild(msg), 300);
+            }, 2000);
+        }
     </script>
 </body>
 </html>

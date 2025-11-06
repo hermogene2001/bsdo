@@ -536,10 +536,16 @@ if (empty($streams)) {
                                     <!-- Action Button -->
                                     <div class="d-grid">
                                         <?php if ($stream['is_live']): ?>
-                                            <a href="watch_stream.php?stream_id=<?php echo $stream['id']; ?>" 
-                                               class="btn btn-danger btn-sm">
-                                                <i class="fas fa-play me-2"></i>Join Live Stream
-                                            </a>
+                                            <?php if ($stream['invitation_enabled']): ?>
+                                                <button class="btn btn-warning btn-sm" onclick="promptInviteCode(<?php echo $stream['id']; ?>)">
+                                                    <i class="fas fa-ticket-alt me-2"></i>Enter Invite Code
+                                                </button>
+                                            <?php else: ?>
+                                                <a href="watch_stream.php?stream_id=<?php echo $stream['id']; ?>" 
+                                                   class="btn btn-danger btn-sm">
+                                                    <i class="fas fa-play me-2"></i>Join Live Stream
+                                                </a>
+                                            <?php endif; ?>
                                         <?php elseif (empty($stream['ended_at']) && empty($stream['is_live'])): ?>
                                             <button class="btn btn-warning btn-sm" onclick="setReminder(<?php echo $stream['id']; ?>)">
                                                 <i class="fas fa-bell me-2"></i>Set Reminder
@@ -661,6 +667,28 @@ if (empty($streams)) {
         </div>
     </footer>
 
+    <!-- Invitation Code Modal -->
+    <div class="modal fade" id="inviteCodeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Enter Invitation Code</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="inviteCode" class="form-label">Please enter the invitation code to join this stream:</label>
+                        <input type="text" class="form-control" id="inviteCode" placeholder="Enter code">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="submitInviteCode()">Join Stream</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function setReminder(streamId) {
@@ -678,6 +706,33 @@ if (empty($streams)) {
                 }, 30000); // Refresh every 30 seconds for live streams
             }
         }
+
+        let currentStreamId = null;
+        const inviteModal = new bootstrap.Modal(document.getElementById('inviteCodeModal'));
+
+        function promptInviteCode(streamId) {
+            currentStreamId = streamId;
+            document.getElementById('inviteCode').value = '';
+            inviteModal.show();
+        }
+
+        function submitInviteCode() {
+            const code = document.getElementById('inviteCode').value.trim();
+            if (!code) {
+                alert('Please enter an invitation code');
+                return;
+            }
+
+            // Redirect to watch stream with invitation code
+            window.location.href = `watch_stream.php?invite=${encodeURIComponent(code)}`;
+        }
+
+        // Handle enter key in invite code input
+        document.getElementById('inviteCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                submitInviteCode();
+            }
+        });
 
         // Start auto-refresh if on live filter
         if (window.location.search.includes('filter=live')) {

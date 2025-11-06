@@ -482,6 +482,11 @@ function formatDate($date) {
                         <i class="fas fa-chart-bar me-2"></i>Analytics
                     </a>
                 </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="live_stream.php">
+                                <i class="fas fa-video me-2"></i>Live Stream
+                            </a>
+                        </li>
                 <li class="nav-item">
                     <a class="nav-link active" href="profile.php">
                         <i class="fas fa-user me-2"></i>Profile

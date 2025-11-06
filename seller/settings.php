@@ -422,9 +422,9 @@ function formatCurrency($amount) {
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="live_stream.php">
-                        <i class="fas fa-video me-2"></i>Live Stream
-                    </a>
+                            <a class="nav-link" href="live_stream.php">
+                                <i class="fas fa-video me-2"></i>Live Stream
+                            </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="analytics.php">
