@@ -2,6 +2,10 @@
 session_start();
 require_once '../config.php';
 
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
+
 // Check if user is logged in and is seller
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'seller') {
     header('Location: ../login.php');
@@ -61,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($stmt->rowCount() === 0) {
                     $error_message = 'Stream not found or access denied.';
                 } else {
-                    $update = $pdo->prepare("UPDATE live_streams SET invite_code = NULL, invite_expires_at = NULL WHERE id = ?");
+                    $update = $pdo->prepare("UPDATE live_streams SET invitation_code = NULL, invitation_expiry = NULL WHERE id = ?");
                     $update->execute([$stream_id]);
                     $success_message = 'Invitation link revoked.';
                 }
@@ -218,7 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stream_id = intval($_POST['stream_id'] ?? 0);
 
                 // Verify stream belongs to seller
-                $stmt = $pdo->prepare("SELECT id, is_live, invite_code, invite_expires_at FROM live_streams WHERE id = ? AND seller_id = ?");
+                $stmt = $pdo->prepare("SELECT id, is_live, invitation_code, invitation_expiry FROM live_streams WHERE id = ? AND seller_id = ?");
                 $stmt->execute([$stream_id, $seller_id]);
                 $stream_check = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -237,7 +241,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $expires_at = (new DateTime('now', new DateTimeZone('UTC')))->modify("+{$expiry_hours} hours")->format('Y-m-d H:i:s');
 
                     // Save invite code and expiry to the stream
-                    $update = $pdo->prepare("UPDATE live_streams SET invite_code = ?, invite_expires_at = ?, invitation_enabled = 1 WHERE id = ?");
+                    $update = $pdo->prepare("UPDATE live_streams SET invitation_code = ?, invitation_expiry = ?, invitation_enabled = 1 WHERE id = ?");
                     $update->execute([$invite_code, $expires_at, $stream_id]);
 
                     // Build the public invitation URL
@@ -259,8 +263,8 @@ $stream_id = intval($_GET['stream_id'] ?? 0);
 
 if ($stream_id) {
     $current_stream_stmt = $pdo->prepare("
-        SELECT ls.*, c.name as category_name, COUNT(lsv.id) as current_viewers,
-               ls.invite_code as invitation_code, ls.invitation_enabled, ls.invite_expires_at as invitation_expiry
+     SELECT ls.*, c.name as category_name, COUNT(lsv.id) as current_viewers,
+         ls.invitation_code as invitation_code, ls.invitation_enabled, ls.invitation_expiry as invitation_expiry
         FROM live_streams ls
         LEFT JOIN categories c ON ls.category_id = c.id
         LEFT JOIN live_stream_viewers lsv ON ls.id = lsv.stream_id AND lsv.is_active = 1
@@ -299,9 +303,9 @@ if ($current_stream) {
 $recent_streams_stmt = $pdo->prepare("
     SELECT ls.*, c.name as category_name, 
            COUNT(lsv.id) as total_viewers,
-           ls.invite_code as invitation_code,
+           ls.invitation_code as invitation_code,
            ls.invitation_enabled,
-           ls.invite_expires_at as invitation_expiry
+           ls.invitation_expiry as invitation_expiry
     FROM live_streams ls
     LEFT JOIN categories c ON ls.category_id = c.id
     LEFT JOIN live_stream_viewers lsv ON ls.id = lsv.stream_id
