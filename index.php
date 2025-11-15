@@ -145,6 +145,12 @@ $stats_stmt = $pdo->prepare("
 $stats_stmt->execute();
 $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
 
+// Include support links helper
+require_once 'includes/support_links.php';
+
+// Include social links helper
+require_once 'includes/social_links.php';
+
 function getCategoryIcon($categoryName) {
     $icons = [
         'Electronics' => 'mobile-alt',
@@ -957,6 +963,11 @@ function getCategoryIcon($categoryName) {
                 </div>
             </div>
             <hr class="my-4">
+            <!-- Social Links -->
+            <div class="text-center mb-3">
+                <h6>Connect with us</h6>
+                <?php echo displaySocialLinks($pdo, 'd-flex justify-content-center gap-3', 'btn btn-outline-light rounded-circle'); ?>
+            </div>
             <div class="text-center">
                 <p>&copy; 2024 BSDO Sale. All rights reserved. | Developed by <a href="mailto:Hermogene2001@gmail.com" class="text-decoration-none text-light">HermogenesTech</a></p>
             </div>

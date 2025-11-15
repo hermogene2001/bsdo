@@ -246,6 +246,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error_message = "Failed to create backup: " . $e->getMessage();
                 }
                 break;
+                
+            case 'update_support_links':
+                try {
+                    $pdo->beginTransaction();
+                    
+                    // Delete existing links
+                    $stmt = $pdo->prepare("DELETE FROM customer_support_links");
+                    $stmt->execute();
+                    
+                    // Insert new links
+                    if (isset($_POST['support_links'])) {
+                        $links = $_POST['support_links'];
+                        $stmt = $pdo->prepare("INSERT INTO customer_support_links (name, url, description, icon, is_active, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                        
+                        foreach ($links as $index => $link) {
+                            $stmt->execute([
+                                $link['name'],
+                                $link['url'],
+                                $link['description'],
+                                $link['icon'],
+                                isset($link['is_active']) ? 1 : 0,
+                                $index
+                            ]);
+                        }
+                    }
+                    
+                    $pdo->commit();
+                    $success_message = "Customer support links updated successfully!";
+                    logAdminActivity("Updated customer support links");
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    $error_message = "Failed to update support links: " . $e->getMessage();
+                }
+                break;
+                
+            case 'update_social_links':
+                try {
+                    $pdo->beginTransaction();
+                    
+                    // Delete existing links
+                    $stmt = $pdo->prepare("DELETE FROM social_links");
+                    $stmt->execute();
+                    
+                    // Insert new links
+                    if (isset($_POST['social_links'])) {
+                        $links = $_POST['social_links'];
+                        $stmt = $pdo->prepare("INSERT INTO social_links (name, url, icon, is_active, sort_order) VALUES (?, ?, ?, ?, ?)");
+                        
+                        foreach ($links as $index => $link) {
+                            $stmt->execute([
+                                $link['name'],
+                                $link['url'],
+                                $link['icon'],
+                                isset($link['is_active']) ? 1 : 0,
+                                $index
+                            ]);
+                        }
+                    }
+                    
+                    $pdo->commit();
+                    $success_message = "Social links updated successfully!";
+                    logAdminActivity("Updated social links");
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    $error_message = "Failed to update social links: " . $e->getMessage();
+                }
+                break;
         }
     }
 }
@@ -262,6 +329,16 @@ while ($row = $settings_stmt->fetch(PDO::FETCH_ASSOC)) {
 $admin_stmt = $pdo->prepare("SELECT first_name, last_name, email, phone FROM users WHERE id = ?");
 $admin_stmt->execute([$_SESSION['user_id']]);
 $admin_profile = $admin_stmt->fetch(PDO::FETCH_ASSOC);
+
+// Get customer support links
+$support_links_stmt = $pdo->prepare("SELECT * FROM customer_support_links ORDER BY sort_order ASC");
+$support_links_stmt->execute();
+$support_links = $support_links_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get social links
+$social_links_stmt = $pdo->prepare("SELECT * FROM social_links ORDER BY sort_order ASC");
+$social_links_stmt->execute();
+$social_links = $social_links_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Default values for settings
 $default_settings = [
@@ -295,7 +372,7 @@ function logAdminActivity($activity) {
     global $pdo;
     if (isset($_SESSION['user_id'])) {
         $stmt = $pdo->prepare("INSERT INTO admin_activities (admin_id, activity, ip_address) VALUES (?, ?, ?)");
-        $stmt->execute([$_SESSION['user_id'], $activity, $_SERVER['REMOTE_ADDR']]);
+        $stmt->execute([$_SESSION['user_id'], $activity, $_SERVER['REMOTE_ADDR'] ?? '']);
     }
 }
 
@@ -625,6 +702,16 @@ $payment_methods = [
                                     </a>
                                 </li>
                                 <li class="nav-item">
+                                    <a class="nav-link" id="support-tab" data-bs-toggle="pill" href="#support" role="tab">
+                                        <i class="fas fa-headset"></i> Support Links
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" id="social-tab" data-bs-toggle="pill" href="#social" role="tab">
+                                        <i class="fas fa-hashtag"></i> Social Links
+                                    </a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link" id="maintenance-tab" data-bs-toggle="pill" href="#maintenance" role="tab">
                                         <i class="fas fa-tools"></i> Maintenance
                                     </a>
@@ -911,7 +998,8 @@ $payment_methods = [
                                 </div>
                                 <div class="card-body">
                                     <!-- Profile Update Form -->
-                                    <form method="POST" class="mb-4">
+                                    <form method="POST">
+                                        <h6 class="border-bottom pb-2">Update Profile Information</h6>
                                         <div class="row">
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label">First Name</label>
@@ -963,6 +1051,220 @@ $payment_methods = [
                                         <button type="submit" name="action" value="change_password" class="btn btn-primary">
                                             <i class="fas fa-key me-2"></i>Change Password
                                         </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Customer Support Links -->
+                        <div class="tab-pane fade" id="support" role="tabpanel">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0"><i class="fas fa-headset me-2"></i>Customer Support Links</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">Manage customer support links that will be displayed to both sellers and clients.</p>
+                                    
+                                    <form method="POST" action="">
+                                        <input type="hidden" name="action" value="update_support_links">
+                                        
+                                        <div id="support-links-container">
+                                            <?php foreach ($support_links as $index => $link): ?>
+                                            <div class="card mb-3 support-link-item">
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-md-5">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Link Name</label>
+                                                                <input type="text" class="form-control" name="support_links[<?php echo $index; ?>][name]" value="<?php echo htmlspecialchars($link['name']); ?>" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">URL</label>
+                                                                <input type="text" class="form-control" name="support_links[<?php echo $index; ?>][url]" value="<?php echo htmlspecialchars($link['url']); ?>" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-5">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Description</label>
+                                                                <textarea class="form-control" name="support_links[<?php echo $index; ?>][description]" rows="2"><?php echo htmlspecialchars($link['description']); ?></textarea>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Icon Class (Font Awesome)</label>
+                                                                <input type="text" class="form-control" name="support_links[<?php echo $index; ?>][icon]" value="<?php echo htmlspecialchars($link['icon']); ?>" placeholder="e.g., fa-comments">
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Active</label><br>
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" type="checkbox" name="support_links[<?php echo $index; ?>][is_active]" <?php echo $link['is_active'] ? 'checked' : ''; ?>>
+                                                                </div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <button type="button" class="btn btn-danger remove-link">Remove</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <?php endforeach; ?>
+                                            
+                                            <!-- Template for new links -->
+                                            <div id="new-link-template" class="card mb-3 support-link-item d-none">
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-md-5">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Link Name</label>
+                                                                <input type="text" class="form-control" name="support_links[new_0][name]" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">URL</label>
+                                                                <input type="text" class="form-control" name="support_links[new_0][url]" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-5">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Description</label>
+                                                                <textarea class="form-control" name="support_links[new_0][description]" rows="2"></textarea>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Icon Class (Font Awesome)</label>
+                                                                <input type="text" class="form-control" name="support_links[new_0][icon]" placeholder="e.g., fa-comments">
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Active</label><br>
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" type="checkbox" name="support_links[new_0][is_active]" checked>
+                                                                </div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <button type="button" class="btn btn-danger remove-link">Remove</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <button type="button" id="add-support-link" class="btn btn-secondary">Add New Link</button>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <button type="submit" class="btn btn-primary">Save Support Links</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Social Media Links -->
+                        <div class="tab-pane fade" id="social" role="tabpanel">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0"><i class="fas fa-hashtag me-2"></i>Social Media Links</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">Manage social media links that will be displayed to both sellers and clients.</p>
+                                    
+                                    <form method="POST" action="">
+                                        <input type="hidden" name="action" value="update_social_links">
+                                        
+                                        <div id="social-links-container">
+                                            <?php foreach ($social_links as $index => $link): ?>
+                                            <div class="card mb-3 social-link-item">
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-md-4">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Platform Name</label>
+                                                                <input type="text" class="form-control" name="social_links[<?php echo $index; ?>][name]" value="<?php echo htmlspecialchars($link['name']); ?>" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-5">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">URL</label>
+                                                                <input type="text" class="form-control" name="social_links[<?php echo $index; ?>][url]" value="<?php echo htmlspecialchars($link['url']); ?>" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Icon Class (Font Awesome)</label>
+                                                                <input type="text" class="form-control" name="social_links[<?php echo $index; ?>][icon]" value="<?php echo htmlspecialchars($link['icon']); ?>" placeholder="e.g., fab fa-facebook-f">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Active</label><br>
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" type="checkbox" name="social_links[<?php echo $index; ?>][is_active]" <?php echo $link['is_active'] ? 'checked' : ''; ?>>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6 text-end">
+                                                            <div class="mb-3">
+                                                                <button type="button" class="btn btn-danger remove-social-link">Remove</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <?php endforeach; ?>
+                                            
+                                            <!-- Template for new links -->
+                                            <div id="new-social-link-template" class="card mb-3 social-link-item d-none">
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-md-4">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Platform Name</label>
+                                                                <input type="text" class="form-control" name="social_links[new_0][name]" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-5">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">URL</label>
+                                                                <input type="text" class="form-control" name="social_links[new_0][url]" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Icon Class (Font Awesome)</label>
+                                                                <input type="text" class="form-control" name="social_links[new_0][icon]" placeholder="e.g., fab fa-facebook-f">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Active</label><br>
+                                                                <div class="form-check form-switch">
+                                                                    <input class="form-check-input" type="checkbox" name="social_links[new_0][is_active]" checked>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6 text-end">
+                                                            <div class="mb-3">
+                                                                <button type="button" class="btn btn-danger remove-social-link">Remove</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <button type="button" id="add-social-link" class="btn btn-secondary">Add New Social Link</button>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <button type="submit" class="btn btn-primary">Save Social Links</button>
+                                        </div>
                                     </form>
                                 </div>
                             </div>
@@ -1107,6 +1409,70 @@ $payment_methods = [
                 tab.addEventListener('shown.bs.tab', function (e) {
                     localStorage.setItem('activeSettingsTab', e.target.id.replace('-tab', ''));
                 });
+            });
+            
+            // Support links functionality
+            let linkCounter = <?php echo count($support_links); ?>;
+            
+            document.getElementById('add-support-link').addEventListener('click', function() {
+                const template = document.getElementById('new-link-template');
+                const clone = template.cloneNode(true);
+                clone.classList.remove('d-none');
+                
+                // Update names to use unique indices
+                const inputs = clone.querySelectorAll('input, textarea');
+                inputs.forEach(input => {
+                    if (input.name) {
+                        input.name = input.name.replace('new_0', 'new_' + linkCounter);
+                    }
+                });
+                
+                // Remove the template ID
+                clone.removeAttribute('id');
+                
+                // Insert before the template
+                template.parentNode.insertBefore(clone, template);
+                
+                linkCounter++;
+            });
+            
+            // Handle remove buttons for support links
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-link')) {
+                    e.target.closest('.support-link-item').remove();
+                }
+            });
+            
+            // Social links functionality
+            let socialLinkCounter = <?php echo count($social_links); ?>;
+            
+            document.getElementById('add-social-link').addEventListener('click', function() {
+                const template = document.getElementById('new-social-link-template');
+                const clone = template.cloneNode(true);
+                clone.classList.remove('d-none');
+                
+                // Update names to use unique indices
+                const inputs = clone.querySelectorAll('input');
+                inputs.forEach(input => {
+                    if (input.name) {
+                        input.name = input.name.replace('new_0', 'new_' + socialLinkCounter);
+                    }
+                });
+                
+                // Remove the template ID
+                clone.removeAttribute('id');
+                
+                // Insert before the template
+                template.parentNode.insertBefore(clone, template);
+                
+                socialLinkCounter++;
+            });
+            
+            // Handle remove buttons for social links
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-social-link')) {
+                    e.target.closest('.social-link-item').remove();
+                }
             });
         });
     </script>

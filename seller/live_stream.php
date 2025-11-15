@@ -775,53 +775,14 @@ function getInvitationStatus($stream) {
                                             <?php echo getInvitationStatus($current_stream); ?>
                                             <small class="text-muted">Started: <?php echo date('M j, Y g:i A', strtotime($current_stream['started_at'])); ?></small>
                                             
-                                            <!-- Invitation Management Section -->
+                                            <!-- Stream Management Section -->
                                             <div class="mt-4 border-top pt-3">
-                                                <h5><i class="fas fa-ticket-alt me-2"></i>Invitation Management</h5>
+                                                <h5><i class="fas fa-cog me-2"></i>Stream Management</h5>
                                                 <div class="card bg-light">
                                                     <div class="card-body">
-                                                        <div class="d-flex justify-content-between align-items-center mb-3">
-                                                            <div>
-                                                                <h6 class="mb-0">Invitation Code:</h6>
-                                                                <?php if ($current_stream['invitation_enabled']): ?>
-                                                                    <code class="fs-5"><?php echo htmlspecialchars($current_stream['invitation_code']); ?></code>
-                                                                <?php else: ?>
-                                                                    <span class="text-muted">Disabled</span>
-                                                                <?php endif; ?>
-                                                            </div>
-                                                            <div class="form-check form-switch">
-                                                                <form method="POST" class="d-inline">
-                                                                    <input type="hidden" name="action" value="manage_invitation">
-                                                                    <input type="hidden" name="stream_id" value="<?php echo $current_stream['id']; ?>">
-                                                                    <input type="hidden" name="invitation_action" value="toggle">
-                                                                    <input type="checkbox" class="form-check-input" id="inviteEnabled" 
-                                                                           name="enabled" <?php echo $current_stream['invitation_enabled'] ? 'checked' : ''; ?>
-                                                                           onchange="this.form.submit()">
-                                                                    <label class="form-check-label" for="inviteEnabled">Enable Invites</label>
-                                                                </form>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div class="d-flex gap-2 mt-3">
-                                                            <form method="POST" class="d-inline">
-                                                                <input type="hidden" name="action" value="manage_invitation">
-                                                                <input type="hidden" name="stream_id" value="<?php echo $current_stream['id']; ?>">
-                                                                <input type="hidden" name="invitation_action" value="regenerate">
-                                                                <button type="submit" class="btn btn-outline-primary btn-sm">
-                                                                    <i class="fas fa-sync-alt me-1"></i>Regenerate Code
-                                                                </button>
-                                                            </form>
-                                                            <button type="button" class="btn btn-outline-secondary btn-sm" 
-                                                                    onclick="copyInviteLink('<?php echo htmlspecialchars($current_stream['invitation_code']); ?>')">
-                                                                <i class="fas fa-copy me-1"></i>Copy Link
-                                                            </button>
-                                                        </div>
-                                                        
-                                                        <div class="mt-3">
-                                                            <small class="text-muted">
-                                                                Share this code or link with your audience to join the live stream.
-                                                            </small>
-                                                        </div>
+                                                        <p class="mb-0 text-muted">
+                                                            All clients can now join your live stream directly without invitation codes.
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -837,44 +798,6 @@ function getInvitationStatus($stream) {
                                                     <i class="fas fa-stop me-2"></i>End Stream
                                                 </button>
                                             </form>
-
-                                            <!-- Generate Invitation Link -->
-                                            <form method="POST" class="d-inline">
-                                                <input type="hidden" name="action" value="generate_invite">
-                                                <input type="hidden" name="stream_id" value="<?php echo $current_stream['id']; ?>">
-                                                <div class="input-group d-inline-block me-2" style="width: 220px; vertical-align: middle;">
-                                                    <select name="invite_expiry_hours" class="form-select form-select-sm">
-                                                        <option value="1">Expire: 1 hour</option>
-                                                        <option value="3">Expire: 3 hours</option>
-                                                        <option value="6">Expire: 6 hours</option>
-                                                        <option value="12">Expire: 12 hours</option>
-                                                        <option value="24" selected>Expire: 24 hours</option>
-                                                        <option value="48">Expire: 48 hours</option>
-                                                        <option value="72">Expire: 72 hours</option>
-                                                        <option value="168">Expire: 7 days</option>
-                                                    </select>
-                                                </div>
-                                                <button type="submit" class="btn btn-primary">
-                                                    <i class="fas fa-link me-2"></i>Generate Invite Link
-                                                </button>
-                                            </form>
-                                            <?php if (!empty($current_stream['invitation_code'])): ?>
-                                                <div class="mt-2">
-                                                    <label class="small text-muted">Invite link:</label>
-                                                    <div class="d-flex align-items-center">
-                                                        <input type="text" id="inviteLink" class="form-control form-control-sm me-2" value="<?php echo htmlspecialchars((isset($generated_invite) ? $generated_invite : (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '/bsdo/watch_stream.php?invite=' . $current_stream['invitation_code'])); ?>" readonly>
-                                                        <button class="btn btn-sm btn-outline-secondary" onclick="copyInviteLink('<?php echo htmlspecialchars($current_stream['invitation_code']); ?>')"><i class="fas fa-copy"></i></button>
-                                                    </div>
-                                                </div>
-                                                <div class="mt-2">
-                                                    <small class="text-muted">Expires: <?php echo htmlspecialchars((isset($generated_invite_expires_at) ? $generated_invite_expires_at : ($current_stream['invitation_expiry'] ?? 'Never'))); ?></small>
-                                                    <form method="POST" class="d-inline ms-3">
-                                                        <input type="hidden" name="action" value="revoke_invite">
-                                                        <input type="hidden" name="stream_id" value="<?php echo $current_stream['id']; ?>">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger ms-2" onclick="return confirm('Revoke this invite link? Clients using the link will no longer be able to join.')">Revoke</button>
-                                                    </form>
-                                                </div>
-                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -1201,49 +1124,6 @@ function getInvitationStatus($stream) {
                                             <div class="d-flex align-items-center flex-wrap">
                                                 <?php echo getStatusBadge($stream['status']); ?>
                                                 
-                                                <?php if ($stream['status'] !== 'ended'): ?>
-                                                    <?php if ($stream['status'] !== 'ended' && $stream['invitation_enabled']): ?>
-                                                        <span class="badge bg-success ms-2">
-                                                            <i class="fas fa-ticket-alt me-1"></i>Invite Required
-                                                        </span>
-                                                    <?php endif; ?>
-                                                    
-                                                    <div class="ms-2">
-                                                        <?php if ($stream['invitation_code']): ?>
-                                                            <button type="button" 
-                                                                    class="btn btn-sm btn-outline-primary" 
-                                                                    onclick="copyInviteLink('<?php echo htmlspecialchars($stream['invitation_code']); ?>')"
-                                                                    title="Copy invitation link">
-                                                                <i class="fas fa-copy"></i>
-                                                            </button>
-                                                        <?php endif; ?>
-                                                        
-                                                        <form method="POST" class="d-inline">
-                                                            <input type="hidden" name="action" value="generate_invite">
-                                                            <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
-                                                            <input type="hidden" name="invite_expiry_hours" value="24">
-                                                            <button type="submit" 
-                                                                    class="btn btn-sm btn-outline-success" 
-                                                                    title="Generate/regenerate invitation link">
-                                                                <i class="fas fa-link"></i>
-                                                            </button>
-                                                        </form>
-                                                        
-                                                        <?php if ($stream['invitation_code']): ?>
-                                                            <form method="POST" class="d-inline">
-                                                                <input type="hidden" name="action" value="manage_invitation">
-                                                                <input type="hidden" name="stream_id" value="<?php echo $stream['id']; ?>">
-                                                                <input type="hidden" name="invitation_action" value="toggle">
-                                                                <input type="hidden" name="enabled" value="<?php echo $stream['invitation_enabled'] ? '0' : '1'; ?>">
-                                                                <button type="submit" 
-                                                                        class="btn btn-sm <?php echo $stream['invitation_enabled'] ? 'btn-outline-danger' : 'btn-outline-success'; ?>"
-                                                                        title="<?php echo $stream['invitation_enabled'] ? 'Disable' : 'Enable'; ?> invitation requirement">
-                                                                    <i class="fas <?php echo $stream['invitation_enabled'] ? 'fa-lock-open' : 'fa-lock'; ?>"></i>
-                                                                </button>
-                                                            </form>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endif; ?>
                                                 <span class="ms-2 text-muted small">
                                                     <i class="fas fa-eye me-1"></i><?php echo $stream['total_viewers']; ?> viewers
                                                 </span>

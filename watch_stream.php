@@ -12,48 +12,12 @@ if (!$is_logged_in) {
 
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'] ?? '';
+$user_role = $_SESSION['user_role'] ?? '';
 
-// Get stream ID or invite code from URL
+// Get stream ID from URL
 $stream_id = intval($_GET['stream_id'] ?? 0);
-$invitation_code = trim($_GET['invite'] ?? '');
 
-if (!$stream_id && $invitation_code) {
-    // Resolve invitation code to stream id
-    $invite_stmt = $pdo->prepare("
-        SELECT id 
-        FROM live_streams 
-        WHERE invitation_code = ? 
-          AND invitation_enabled = 1 
-          AND (ended_at IS NULL OR (invitation_expiry IS NOT NULL AND invitation_expiry > NOW()))
-        LIMIT 1
-    ");
-    $invite_stmt->execute([$invitation_code]);
-    $row = $invite_stmt->fetch(PDO::FETCH_ASSOC);
-    if ($row) {
-        $stream_id = intval($row['id']);
-    } else {
-        $_SESSION['error_message'] = "Invalid or expired invitation code.";
-        header('Location: live_streams.php');
-        exit();
-    }
-}
-
-// If accessing with stream_id directly, check if invitation is required
-if ($stream_id && !$invitation_code) {
-    $access_check = $pdo->prepare("
-        SELECT invitation_enabled, ended_at IS NULL as is_active
-        FROM live_streams
-        WHERE id = ?
-    ");
-    $access_check->execute([$stream_id]);
-    $stream_access = $access_check->fetch(PDO::FETCH_ASSOC);
-    
-    if ($stream_access && $stream_access['invitation_enabled'] && $stream_access['is_active']) {
-        $_SESSION['error_message'] = "This stream requires an invitation code to join.";
-        header('Location: live_streams.php');
-        exit();
-    }
-}
+// No invitation code check needed - clients can access streams directly
 
 if (!$stream_id) {
     header('Location: live_streams.php');

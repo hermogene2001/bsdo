@@ -2,6 +2,12 @@
 session_start();
 require_once '../config.php';
 
+// Include support links helper
+require_once '../includes/support_links.php';
+
+// Include social links helper
+require_once '../includes/social_links.php';
+
 // Check if user is logged in and is seller
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'seller') {
     header('Location: ../login.php');
@@ -376,7 +382,6 @@ function formatCurrency($amount) {
                     </div>
                 </div>
 
-                <!-- Quick Stats -->
                 <!-- Quick Links: provide one-click access to common seller actions -->
                 <div class="quick-links row mb-4">
                     <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
@@ -423,6 +428,14 @@ function formatCurrency($amount) {
                         </a>
                     </div>
                 </div>
+                
+                <!-- Customer Support Links -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <?php echo displayCustomerSupportLinks($pdo, 'card p-3'); ?>
+                    </div>
+                </div>
+
                 <div class="row mb-4">
                     <div class="col-md-3 mb-3">
                         <div class="stats-card">
@@ -569,5 +582,16 @@ function formatCurrency($amount) {
             alert('Seller code saved to cookies! It will be auto-filled next time you login as a seller.');
         }
     </script>
+    
+    <!-- Social Links -->
+    <div class="container-fluid bg-dark text-light py-3">
+        <div class="text-center mb-2">
+            <h6>Connect with us</h6>
+            <?php echo displaySocialLinks($pdo, 'd-flex justify-content-center gap-3', 'btn btn-outline-light rounded-circle'); ?>
+        </div>
+        <div class="text-center small">
+            &copy; 2024 BSDO Sale. All rights reserved.
+        </div>
+    </div>
 </body>
 </html>
