@@ -1,0 +1,2 @@
+rootProject.name = "BSDOApp"
+include ':app'
