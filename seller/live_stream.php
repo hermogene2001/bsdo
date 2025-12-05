@@ -14,6 +14,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'seller') {
 
 $seller_id = $_SESSION['user_id'];
 
+// Initialize messages and variables
+$success_message = '';
+$error_message = '';
+$generated_invite = '';
+$generated_invite_expires_at = '';
+
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
@@ -32,8 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 try {
                     $stmt = $pdo->prepare("
-                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, invitation_enabled, status, scheduled_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, true, 'scheduled', ?)
+                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, invitation_enabled, invitation_expiry, status, scheduled_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, true, NULL, 'scheduled', ?)
                     ");
                     $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key, $invitation_code, $scheduled_at]);
                     $stream_id = $pdo->lastInsertId();
@@ -163,12 +169,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($action_type === 'regenerate') {
                         // Generate new invitation code
                         $new_invitation_code = bin2hex(random_bytes(8));
+                        // Set expiration to 24 hours from now
+                        $expires_at = (new DateTime('now', new DateTimeZone('UTC')))->modify("+24 hours")->format('Y-m-d H:i:s');
                         $update_stmt = $pdo->prepare("
                             UPDATE live_streams 
-                            SET invitation_code = ?, invitation_enabled = true 
+                            SET invitation_code = ?, invitation_expiry = ?, invitation_enabled = true 
                             WHERE id = ?
                         ");
-                        $update_stmt->execute([$new_invitation_code, $stream_id]);
+                        $update_stmt->execute([$new_invitation_code, $expires_at, $stream_id]);
                         $success_message = "Invitation code regenerated successfully!";
                     } elseif ($action_type === 'toggle') {
                         $enabled = isset($_POST['enabled']) ? 1 : 0;
@@ -245,7 +253,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $update->execute([$invite_code, $expires_at, $stream_id]);
 
                     // Build the public invitation URL
-                    $invite_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https://" : "http://") . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . "/../watch_stream.php?invite=" . $invite_code;
+                    $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https://" : "http://") . $_SERVER['HTTP_HOST'] . dirname(dirname($_SERVER['REQUEST_URI']));
+                    $invite_url = $base_url . "/watch_stream.php?invite=" . $invite_code;
 
                     $success_message = 'Invitation link generated successfully!';
                     // Provide the invite URL and expiry to the template
@@ -263,8 +272,7 @@ $stream_id = intval($_GET['stream_id'] ?? 0);
 
 if ($stream_id) {
     $current_stream_stmt = $pdo->prepare("
-     SELECT ls.*, c.name as category_name, COUNT(lsv.id) as current_viewers,
-         ls.invitation_code as invitation_code, ls.invitation_enabled, ls.invitation_expiry as invitation_expiry
+     SELECT ls.*, c.name as category_name, COUNT(lsv.id) as current_viewers
         FROM live_streams ls
         LEFT JOIN categories c ON ls.category_id = c.id
         LEFT JOIN live_stream_viewers lsv ON ls.id = lsv.stream_id AND lsv.is_active = 1
@@ -302,10 +310,7 @@ if ($current_stream) {
 // Get seller's recent streams
 $recent_streams_stmt = $pdo->prepare("
     SELECT ls.*, c.name as category_name, 
-           COUNT(lsv.id) as total_viewers,
-           ls.invitation_code as invitation_code,
-           ls.invitation_enabled,
-           ls.invitation_expiry as invitation_expiry
+           COUNT(lsv.id) as total_viewers
     FROM live_streams ls
     LEFT JOIN categories c ON ls.category_id = c.id
     LEFT JOIN live_stream_viewers lsv ON ls.id = lsv.stream_id
@@ -340,7 +345,7 @@ function getStatusBadge($status) {
 // New function to display invitation status
 function getInvitationStatus($stream) {
     // Only show invitation status for non-ended streams
-    if ($stream['status'] !== 'ended' && !empty($stream['invitation_code'])) {
+    if ($stream['status'] !== 'ended' && !empty($stream['invitation_code']) && !empty($stream['invitation_expiry'])) {
         $expires_at = new DateTime($stream['invitation_expiry']);
         $now = new DateTime();
         
@@ -784,6 +789,20 @@ function getInvitationStatus($stream) {
                                                             All clients can now join your live stream directly without invitation codes.
                                                         </p>
                                                     </div>
+                                                </div>
+                                                
+                                                <!-- Public Stream Link -->
+                                                <div class="mt-3">
+                                                    <h5><i class="fas fa-link me-2"></i>Public Stream Link</h5>
+                                                    <div class="input-group">
+                                                        <input type="text" class="form-control" id="publicStreamLink" 
+                                                               value="<?php echo (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '/watch_stream.php?stream_id=' . $current_stream['id']; ?>" 
+                                                               readonly>
+                                                        <button class="btn btn-outline-primary" type="button" id="copyStreamLink">
+                                                            <i class="fas fa-copy me-1"></i>Copy Link
+                                                        </button>
+                                                    </div>
+                                                    <small class="text-muted">Share this link with anyone to let them join your live stream.</small>
                                                 </div>
                                             </div>
                                         </div>
@@ -1468,6 +1487,32 @@ function getInvitationStatus($stream) {
                 setTimeout(() => document.body.removeChild(msg), 300);
             }, 2000);
         }
+        
+        // Copy public stream link
+        document.addEventListener('DOMContentLoaded', function() {
+            const copyButton = document.getElementById('copyStreamLink');
+            if (copyButton) {
+                copyButton.addEventListener('click', function() {
+                    const linkInput = document.getElementById('publicStreamLink');
+                    linkInput.select();
+                    linkInput.setSelectionRange(0, 99999); // For mobile devices
+                    
+                    try {
+                        const successful = document.execCommand('copy');
+                        if (successful) {
+                            showCopySuccess('Stream link copied to clipboard!');
+                        } else {
+                            showCopySuccess('Failed to copy link');
+                        }
+                    } catch (err) {
+                        console.error('Failed to copy: ', err);
+                        // Fallback: select the text and show message
+                        linkInput.select();
+                        showCopySuccess('Link selected. Press Ctrl+C to copy.');
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>

@@ -80,6 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
             --secondary-color: #1cc88a;
             --dark-color: #2e3a59;
             --light-color: #f8f9fc;
+            --regular-color: #4e73df;
+            --rental-color: #f6c23e;
         }
         
         body {
@@ -180,6 +182,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
             background: linear-gradient(135deg, var(--regular-color), #258391);
             border: none;
             color: white;
+        }
+        
+        /* Inquiry Modal Styles */
+        .modal-header.bg-primary {
+            background: linear-gradient(135deg, var(--primary-color), #667eea) !important;
+        }
+        
+        .modal-header.bg-success {
+            background: linear-gradient(135deg, #28a745, #20c997) !important;
+        }
+        
+        #inquiryMessage {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -368,15 +399,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
                                                max="<?= min($product['stock'], 10) ?>" 
                                                class="form-control form-control-sm" style="width: 100px;">
                                     </div>
-                                    <button type="submit" name="add_to_cart" class="btn btn-regular btn-lg w-100">
+                                    <button type="submit" name="add_to_cart" class="btn btn-regular btn-lg w-100 mb-2">
                                         <i class="fas fa-cart-plus me-1"></i>Add to Cart
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-lg w-100" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
+                                            onclick="setInquiryProduct(<?= $product['id'] ?>, '<?= htmlspecialchars($product['name'], ENT_QUOTES) ?>')">
+                                        <i class="fas fa-question-circle me-1"></i>Ask About Product
                                     </button>
                                 </form>
                             <?php endif; ?>
                         <?php elseif (!$is_logged_in): ?>
-                            <a href="#" class="btn btn-primary btn-lg w-100" data-bs-toggle="modal" data-bs-target="#loginModal">
-                                <i class="fas fa-lock me-1"></i>Login to Purchase
-                            </a>
+                            <div class="d-grid gap-2">
+                                <a href="login.php" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-lock me-1"></i>Login to Purchase
+                                </a>
+                                <button class="btn btn-outline-primary btn-lg" data-bs-toggle="modal" data-bs-target="#loginModal">
+                                    <i class="fas fa-question-circle me-1"></i>Ask About Product
+                                </button>
+                            </div>
+                            
+                            <!-- Login Modal -->
+                            <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-primary text-white">
+                                            <h5 class="modal-title" id="loginModalLabel">Login Required</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body text-center">
+                                            <i class="fas fa-lock fa-3x text-primary mb-3"></i>
+                                            <p>You need to be logged in to send inquiries or make purchases.</p>
+                                            <p>Please <a href="login.php">login</a> or <a href="register.php">register</a> to continue.</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            <a href="login.php" class="btn btn-primary">Login</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         <?php else: ?>
                             <button class="btn btn-outline-primary btn-lg w-100" disabled>
                                 <i class="fas fa-eye me-1"></i>View Only
@@ -474,6 +535,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
                 if (bsAlert) bsAlert.close();
             }, 5000);
         });
+        
+        // Handle inquiry form submission
+        document.getElementById('inquiryForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const productId = document.getElementById('inquiryProductId').value;
+            const message = document.getElementById('inquiryMessage').value;
+            
+            if (!productId || !message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            // Send inquiry via AJAX
+            fetch('create_inquiry.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'product_id=' + encodeURIComponent(productId) + '&message=' + encodeURIComponent(message)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close inquiry modal and show success modal
+                    const inquiryModal = bootstrap.Modal.getInstance(document.getElementById('inquiryModal'));
+                    inquiryModal.hide();
+                    
+                    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                    successModal.show();
+                    
+                    // Clear form
+                    document.getElementById('inquiryForm').reset();
+                } else {
+                    alert('Failed to send inquiry: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to send inquiry. Please try again.');
+            });
+        });
     </script>
+    
+    <!-- Inquiry Modal -->
+    <div class="modal fade" id="inquiryModal" tabindex="-1" aria-labelledby="inquiryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="inquiryModalLabel">Ask About Product</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Send an inquiry to the seller about: <strong id="inquiryProductName"></strong></p>
+                    <form id="inquiryForm">
+                        <input type="hidden" id="inquiryProductId" name="product_id">
+                        <div class="mb-3">
+                            <label for="inquiryMessage" class="form-label">Your Message</label>
+                            <textarea class="form-control" id="inquiryMessage" name="message" rows="4" 
+                                      placeholder="Ask about availability, pricing, delivery, or any other questions..." required></textarea>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-1"></i>Send Inquiry
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Success Modal -->
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="successModalLabel">Inquiry Sent</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                    <p>Your inquiry has been sent to the seller successfully. They will respond shortly.</p>
+                    <p>You can view and continue the conversation in your <a href="inquiries.php">Inquiries</a> section.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
