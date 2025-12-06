@@ -77,8 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $reward_invitee = 0.00;
 
                     if ($role === 'seller') {
-                        // Seller invited a seller -> $0.20 to inviter
-                        $reward_inviter = 0.20;
+                        // Seller invited a seller -> Track for 0.5% on product postings
+                        $reward_inviter = 0.00; // No immediate reward, will be calculated on product posting
                     } elseif ($role === 'client') {
                         // Seller invited a client -> $0.50 to client (invitee)
                         $reward_invitee = 0.50;

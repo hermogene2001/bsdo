@@ -49,7 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_referral'])) 
         $reward_invitee = 0.00;
         
         if ($invitee_role === 'seller') {
-            $reward_inviter = 0.20;
+            // No immediate reward for seller-to-seller referrals
+            // Reward will be calculated when the invited seller posts a product
+            $reward_inviter = 0.00;
         } elseif ($invitee_role === 'client') {
             $reward_invitee = 0.50;
         }
@@ -74,7 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_referral'])) 
         
         $pdo->commit();
         
-        $message = "✅ Referral processed successfully! Inviter earned $" . number_format($reward_inviter, 2) . ", Invitee earned $" . number_format($reward_invitee, 2);
+        $message = "✅ Referral processed successfully! ";
+        if ($invitee_role === 'seller') {
+            $message .= "No immediate reward. Inviter will earn 0.5% when invited seller posts products.";
+        } else {
+            $message .= "Invitee earned $" . number_format($reward_invitee, 2);
+        }
         
     } catch (Exception $e) {
         if ($pdo->inTransaction()) {
@@ -167,7 +174,7 @@ $referrals = $referrals_stmt->fetchAll(PDO::FETCH_ASSOC);
                             <div class="mb-3">
                                 <label class="form-label">Invitee Role</label>
                                 <select name="invitee_role" class="form-select" required>
-                                    <option value="seller">Seller ($0.20 to inviter)</option>
+                                    <option value="seller">Seller (0.5% on product postings)</option>
                                     <option value="client">Client ($0.50 to invitee)</option>
                                 </select>
                             </div>

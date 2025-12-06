@@ -110,6 +110,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $image_url, $image_gallery, $address, $city, $state, $country, $postal_code,
                         $payment_channel_id
                     ]);
+                    
+                    // Check if this seller was referred by another seller and award 0.5% referral bonus
+                    try {
+                        $pdo->beginTransaction();
+                        
+                        // Calculate average rental price for referral bonus
+                        $avg_rental_price = ($rental_price_per_day + $rental_price_per_week + $rental_price_per_month) / 3;
+                        
+                        // Check if this seller was referred by another seller
+                        $referral_stmt = $pdo->prepare("SELECT inviter_id FROM referrals WHERE invitee_id = ? AND invitee_role = 'seller' LIMIT 1");
+                        $referral_stmt->execute([$seller_id]);
+                        $referral_result = $referral_stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($referral_result) {
+                            $inviter_id = $referral_result['inviter_id'];
+                            $referral_bonus = $avg_rental_price * 0.005; // 0.5% of average rental price
+                            
+                            // Award the referral bonus to the inviter
+                            $bonus_stmt = $pdo->prepare("INSERT INTO user_wallets (user_id, balance) VALUES (?, ?) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)");
+                            $bonus_stmt->execute([$inviter_id, $referral_bonus]);
+                            
+                            // Update the referral record with the bonus amount
+                            $update_referral_stmt = $pdo->prepare("UPDATE referrals SET reward_to_inviter = reward_to_inviter + ? WHERE invitee_id = ? AND invitee_role = 'seller'");
+                            $update_referral_stmt->execute([$referral_bonus, $seller_id]);
+                        }
+                        
+                        $pdo->commit();
+                    } catch (Exception $e) {
+                        if ($pdo->inTransaction()) {
+                            $pdo->rollBack();
+                        }
+                        error_log("Referral bonus error: " . $e->getMessage());
+                    }
+                    
                     $success_message = "Rental product added successfully! Waiting for admin approval.";
                 } catch (Exception $e) {
                     $error_message = "Failed to add rental product: " . $e->getMessage();
