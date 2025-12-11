@@ -22,40 +22,30 @@
             android:layout_marginBottom="24dp"
             android:gravity="center" />
 
-        <!-- Product Image -->
-        <com.google.android.material.card.MaterialCardView
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="200dp"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
+            android:layout_marginBottom="16dp">
 
-            <FrameLayout
+            <ImageView
+                android:id="@+id/imageViewProduct"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/logo"
+                android:contentDescription="Product Image" />
 
-                <ImageView
-                    android:id="@+id/imageViewProduct"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/ic_app_logo"
-                    android:contentDescription="Product Image" />
+            <Button
+                android:id="@+id/buttonSelectImage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Select Image"
+                android:layout_gravity="center"
+                android:backgroundTint="@color/colorAccent"
+                android:textColor="@android:color/white" />
 
-                <Button
-                    android:id="@+id/buttonSelectImage"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Select Image"
-                    android:layout_gravity="center"
-                    android:backgroundTint="@color/colorPrimary"
-                    android:textColor="@android:color/white" />
+        </FrameLayout>
 
-            </FrameLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Product Name -->
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -63,7 +53,7 @@
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/editTextName"
+                android:id="@+id/editTextProductName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="Product Name"
@@ -71,7 +61,6 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Product Description -->
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -79,33 +68,55 @@
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/editTextDescription"
+                android:id="@+id/editTextProductDescription"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Product Description"
+                android:hint="Description"
                 android:inputType="textMultiLine"
-                android:minLines="3"
-                android:maxLines="6" />
+                android:minLines="3" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Price -->
-        <com.google.android.material.textfield.TextInputLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/editTextPrice"
-                android:layout_width="match_parent"
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="Price ($)"
-                android:inputType="numberDecimal" />
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextProductPrice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Price"
+                    android:inputType="numberDecimal" />
 
-        <!-- Rental Option -->
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextProductQuantity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Quantity"
+                    android:inputType="number" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
+
         <CheckBox
             android:id="@+id/checkBoxRental"
             android:layout_width="match_parent"
@@ -113,117 +124,53 @@
             android:text="Available for Rental"
             android:layout_marginBottom="16dp" />
 
-        <!-- Rental Price -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/editTextRentalPrice"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="Rental Price per Day ($)"
-                android:inputType="numberDecimal"
-                android:enabled="false" />
-
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Stock Quantity -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/editTextStock"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="Stock Quantity"
-                android:inputType="number" />
-
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Category -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Category"
-            android:textSize="16sp"
-            android:textColor="@color/colorOnSurface"
-            android:layout_marginBottom="8dp" />
-
-        <Spinner
-            android:id="@+id/spinnerCategory"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:padding="12dp"
-            android:background="@drawable/spinner_background" />
-
-        <!-- Product Type -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Product Type"
-            android:textSize="16sp"
-            android:textColor="@color/colorOnSurface"
-            android:layout_marginBottom="8dp" />
-
-        <RadioGroup
-            android:id="@+id/radioGroupProductType"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
-
-            <RadioButton
-                android:id="@+id/radioRegular"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Regular" />
-
-            <RadioButton
-                android:id="@+id/radioRental"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Rental" />
-
-        </RadioGroup>
-
-        <!-- Buttons -->
         <LinearLayout
+            android:id="@+id/layoutRentalOptions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone">
 
-            <Button
-                android:id="@+id/buttonCancel"
-                android:layout_width="0dp"
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Cancel"
-                android:textAllCaps="false"
-                android:backgroundTint="@color/colorSecondaryText"
-                android:textColor="@android:color/white"
-                android:layout_marginEnd="8dp" />
+                android:layout_marginBottom="16dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-            <Button
-                android:id="@+id/buttonSave"
-                android:layout_width="0dp"
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextDailyRate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Daily Rate"
+                    android:inputType="numberDecimal" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Save Product"
-                android:textAllCaps="false"
-                android:backgroundTint="@color/colorPrimary"
-                android:textColor="@android:color/white"
-                android:layout_marginStart="8dp" />
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextWeeklyRate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Weekly Rate"
+                    android:inputType="numberDecimal" />
+
+            </com.google.android.material.textfield.TextInputLayout>
 
         </LinearLayout>
+
+        <Button
+            android:id="@+id/buttonSaveProduct"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save Product"
+            android:textAllCaps="false"
+            android:backgroundTint="@color/colorPrimary"
+            android:textColor="@android:color/white" />
 
     </LinearLayout>
 

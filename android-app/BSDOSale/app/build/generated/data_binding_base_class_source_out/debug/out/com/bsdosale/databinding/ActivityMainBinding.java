@@ -4,8 +4,11 @@ package com.bsdosale.databinding;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.webkit.WebView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
@@ -17,24 +20,33 @@ import java.lang.String;
 
 public final class ActivityMainBinding implements ViewBinding {
   @NonNull
-  private final LinearLayout rootView;
+  private final RelativeLayout rootView;
 
   @NonNull
-  public final Button btnLogin;
+  public final ImageView logoImage;
 
   @NonNull
-  public final Button btnRegister;
+  public final LinearLayout preloaderLayout;
 
-  private ActivityMainBinding(@NonNull LinearLayout rootView, @NonNull Button btnLogin,
-      @NonNull Button btnRegister) {
+  @NonNull
+  public final ProgressBar progressBar;
+
+  @NonNull
+  public final WebView webView;
+
+  private ActivityMainBinding(@NonNull RelativeLayout rootView, @NonNull ImageView logoImage,
+      @NonNull LinearLayout preloaderLayout, @NonNull ProgressBar progressBar,
+      @NonNull WebView webView) {
     this.rootView = rootView;
-    this.btnLogin = btnLogin;
-    this.btnRegister = btnRegister;
+    this.logoImage = logoImage;
+    this.preloaderLayout = preloaderLayout;
+    this.progressBar = progressBar;
+    this.webView = webView;
   }
 
   @Override
   @NonNull
-  public LinearLayout getRoot() {
+  public RelativeLayout getRoot() {
     return rootView;
   }
 
@@ -59,19 +71,32 @@ public final class ActivityMainBinding implements ViewBinding {
     // This is done to optimize the compiled bytecode for size and performance.
     int id;
     missingId: {
-      id = R.id.btnLogin;
-      Button btnLogin = ViewBindings.findChildViewById(rootView, id);
-      if (btnLogin == null) {
+      id = R.id.logoImage;
+      ImageView logoImage = ViewBindings.findChildViewById(rootView, id);
+      if (logoImage == null) {
         break missingId;
       }
 
-      id = R.id.btnRegister;
-      Button btnRegister = ViewBindings.findChildViewById(rootView, id);
-      if (btnRegister == null) {
+      id = R.id.preloaderLayout;
+      LinearLayout preloaderLayout = ViewBindings.findChildViewById(rootView, id);
+      if (preloaderLayout == null) {
         break missingId;
       }
 
-      return new ActivityMainBinding((LinearLayout) rootView, btnLogin, btnRegister);
+      id = R.id.progressBar;
+      ProgressBar progressBar = ViewBindings.findChildViewById(rootView, id);
+      if (progressBar == null) {
+        break missingId;
+      }
+
+      id = R.id.webView;
+      WebView webView = ViewBindings.findChildViewById(rootView, id);
+      if (webView == null) {
+        break missingId;
+      }
+
+      return new ActivityMainBinding((RelativeLayout) rootView, logoImage, preloaderLayout,
+          progressBar, webView);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

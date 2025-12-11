@@ -16,10 +16,6 @@
         "source": "com.bsdosale.app-main-36:/layout/fragment_live_streams.xml"
     },
     {
-        "merged": "com.bsdosale.app-mergeDebugResources-33:/layout/activity_live_stream.xml",
-        "source": "com.bsdosale.app-main-36:/layout/activity_live_stream.xml"
-    },
-    {
         "merged": "com.bsdosale.app-mergeDebugResources-33:/layout/activity_seller_dashboard.xml",
         "source": "com.bsdosale.app-main-36:/layout/activity_seller_dashboard.xml"
     },
@@ -44,12 +40,12 @@
         "source": "com.bsdosale.app-main-36:/layout/activity_home.xml"
     },
     {
-        "merged": "com.bsdosale.app-mergeDebugResources-33:/layout/activity_main.xml",
-        "source": "com.bsdosale.app-main-36:/layout/activity_main.xml"
-    },
-    {
         "merged": "com.bsdosale.app-mergeDebugResources-33:/layout/fragment_products.xml",
         "source": "com.bsdosale.app-main-36:/layout/fragment_products.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-mergeDebugResources-33:/layout/activity_main.xml",
+        "source": "com.bsdosale.app-main-36:/layout/activity_main.xml"
     },
     {
         "merged": "com.bsdosale.app-mergeDebugResources-33:/layout/activity_login.xml",

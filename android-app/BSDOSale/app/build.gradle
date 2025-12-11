@@ -1,7 +1,5 @@
-plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-}
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
     namespace 'com.bsdosale'
@@ -40,20 +38,6 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.8.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    
-    // Networking
-    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
-    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
-    implementation 'com.squareup.okhttp3:logging-interceptor:4.10.0'
-    
-    // Image loading
-    implementation 'com.github.bumptech.glide:glide:4.14.2'
-    
-    // WebRTC for live streaming
-    implementation 'org.webrtc:google-webrtc:1.0.32006'
-    
-    // WebSocket for real-time messaging
-    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
     
     // Lifecycle components
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1'

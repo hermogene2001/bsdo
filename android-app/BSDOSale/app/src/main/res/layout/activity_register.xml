@@ -18,7 +18,7 @@
             android:layout_height="80dp"
             android:layout_gravity="center"
             android:layout_marginBottom="16dp"
-            android:src="@drawable/ic_app_logo"
+            android:src="@drawable/logo"
             android:contentDescription="App Logo" />
 
         <TextView
@@ -28,59 +28,88 @@
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="@color/colorPrimary"
-            android:layout_gravity="center"
             android:layout_marginBottom="24dp" />
 
+        <!-- Role Selection -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/select_role"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/colorPrimary"
+            android:layout_marginBottom="8dp" />
+
         <RadioGroup
-            android:id="@+id/radioGroupRole"
+            android:id="@+id/rgRole"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginBottom="16dp">
 
             <RadioButton
-                android:id="@+id/radioClient"
+                android:id="@+id/rbClient"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Client" />
+                android:text="@string/client" />
 
             <RadioButton
-                android:id="@+id/radioSeller"
+                android:id="@+id/rbSeller"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Seller" />
+                android:text="@string/seller" />
 
         </RadioGroup>
 
+        <!-- Client Registration Fields -->
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilClientName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etFirstName"
+                android:id="@+id/etClientName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/first_name"
+                android:hint="@string/full_name"
+                android:inputType="textPersonName" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Seller Registration Fields -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilSellerName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etSellerName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/business_name"
                 android:inputType="textPersonName" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilSellerCode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etLastName"
+                android:id="@+id/etSellerCode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/last_name"
-                android:inputType="textPersonName" />
+                android:hint="@string/seller_code"
+                android:inputType="text" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -96,59 +125,6 @@
                 android:layout_height="wrap_content"
                 android:hint="@string/email"
                 android:inputType="textEmailAddress" />
-
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etPhone"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/phone"
-                android:inputType="phone" />
-
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etStoreName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/store_name"
-                android:inputType="text" />
-
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <Spinner
-            android:id="@+id/spinnerBusinessType"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:padding="12dp"
-            android:background="@drawable/spinner_background" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etReferralCode"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/referral_code"
-                android:inputType="text" />
 
         </com.google.android.material.textfield.TextInputLayout>
 

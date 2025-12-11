@@ -12,4 +12,7 @@
     <color name="colorOnBackground">#000000</color>
     <color name="colorOnSurface">#000000</color>
     <color name="colorOnError">#FFFFFF</color>
+    <!-- Added missing colors -->
+    <color name="colorLive">#F44336</color>
+    <color name="colorLightGray">#E0E0E0</color>
 </resources>

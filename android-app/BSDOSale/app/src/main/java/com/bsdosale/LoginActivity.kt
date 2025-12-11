@@ -3,15 +3,15 @@ package com.bsdosale
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.textfield.TextInputEditText
 
 class LoginActivity : AppCompatActivity() {
     
-    private lateinit var etEmail: EditText
-    private lateinit var etPassword: EditText
+    private lateinit var etEmail: TextInputEditText
+    private lateinit var etPassword: TextInputEditText
     private lateinit var btnLogin: Button
     private lateinit var tvRegister: TextView
     private lateinit var tvForgotPassword: TextView
@@ -68,8 +68,8 @@ class LoginActivity : AppCompatActivity() {
         // For now, we'll just simulate a successful login
         Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show()
         
-        // Navigate to HomeActivity
-        startActivity(Intent(this, HomeActivity::class.java))
+        // Navigate to MainActivity
+        startActivity(Intent(this, MainActivity::class.java))
         finish()
     }
 }

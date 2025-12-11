@@ -48,4 +48,11 @@
     <string name="profile">Profile</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
+    <!-- Added missing strings -->
+    <string name="select_role">Select Role</string>
+    <string name="client">Client</string>
+    <string name="seller">Seller</string>
+    <string name="full_name">Full Name</string>
+    <string name="business_name">Business Name</string>
+    <string name="seller_code">Seller Code</string>
 </resources>

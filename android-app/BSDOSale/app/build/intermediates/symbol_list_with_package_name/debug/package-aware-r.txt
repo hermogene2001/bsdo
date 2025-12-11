@@ -2940,7 +2940,6 @@ id btnRentalProducts
 id btnUpcomingStreams
 id buttonAddProduct
 id buttonAnalytics
-id buttonEndStream
 id buttonLiveStream
 id buttonMyProducts
 id buttonOrders
@@ -2949,7 +2948,6 @@ id buttonProfile
 id buttonSaveProduct
 id buttonSelectImage
 id buttonSend
-id buttonStartStream
 id buttonToggleChat
 id cache_measures
 id callMeasure
@@ -3024,13 +3022,11 @@ id easeInOut
 id easeOut
 id east
 id editTextDailyRate
-id editTextDescription
 id editTextMessage
 id editTextProductDescription
 id editTextProductName
 id editTextProductPrice
 id editTextProductQuantity
-id editTextTitle
 id editTextWeeklyRate
 id edit_query
 id elastic
@@ -3115,6 +3111,7 @@ id line3
 id linear
 id listMode
 id list_item
+id logoImage
 id m3_side_sheet
 id marquee
 id masked
@@ -3217,6 +3214,7 @@ id percent
 id pin
 id position
 id postLayout
+id preloaderLayout
 id pressed
 id progressBar
 id progress_circular
@@ -3314,7 +3312,6 @@ id stretch
 id submenuarrow
 id submit_area
 id supportScrollUp
-id surfaceViewRenderer
 id tabMode
 id tag_accessibility_actions
 id tag_accessibility_clickable_spans
@@ -3397,6 +3394,7 @@ id view_tree_saved_state_registry_owner
 id view_tree_view_model_store_owner
 id visible
 id visible_removing_fragment_view_tag
+id webView
 id west
 id withText
 id with_icon
@@ -3514,7 +3512,6 @@ layout abc_select_dialog_material
 layout abc_tooltip
 layout activity_add_product
 layout activity_home
-layout activity_live_stream
 layout activity_login
 layout activity_main
 layout activity_register
@@ -5065,3 +5062,4 @@ styleable ViewPager2 android_orientation
 styleable ViewStubCompat android_id android_layout android_inflatedId
 styleable ViewTransition android_id SharedValue SharedValueId clearsTag duration ifTagNotSet ifTagSet motionInterpolator motionTarget onStateTransition pathMotionArc setsTag transitionDisable upDuration viewTransitionMode
 styleable include constraintSet
+xml network_security_config

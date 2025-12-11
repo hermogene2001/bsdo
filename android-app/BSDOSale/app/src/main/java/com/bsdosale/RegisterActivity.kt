@@ -4,58 +4,49 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.textfield.TextInputEditText
 
 class RegisterActivity : AppCompatActivity() {
     
-    private lateinit var etFirstName: EditText
-    private lateinit var etLastName: EditText
-    private lateinit var etEmail: EditText
-    private lateinit var etPhone: EditText
-    private lateinit var etStoreName: EditText
-    private lateinit var spinnerBusinessType: Spinner
-    private lateinit var etReferralCode: EditText
-    private lateinit var etPassword: EditText
-    private lateinit var etConfirmPassword: EditText
-    private lateinit var radioGroupRole: RadioGroup
+    private lateinit var rgRole: RadioGroup
+    private lateinit var rbClient: RadioButton
+    private lateinit var rbSeller: RadioButton
+    private lateinit var tilClientName: com.google.android.material.textfield.TextInputLayout
+    private lateinit var etClientName: TextInputEditText
+    private lateinit var tilSellerName: com.google.android.material.textfield.TextInputLayout
+    private lateinit var etSellerName: TextInputEditText
+    private lateinit var tilSellerCode: com.google.android.material.textfield.TextInputLayout
+    private lateinit var etSellerCode: TextInputEditText
+    private lateinit var etEmail: TextInputEditText
+    private lateinit var etPassword: TextInputEditText
+    private lateinit var etConfirmPassword: TextInputEditText
     private lateinit var btnRegister: Button
     private lateinit var tvLogin: TextView
-    
-    private val businessTypes = arrayOf(
-        "Select Business Type",
-        "Retail",
-        "Wholesale",
-        "Manufacturer",
-        "Service Provider"
-    )
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
         
         initViews()
-        setupSpinner()
         setClickListeners()
+        setupRoleSelection()
     }
     
     private fun initViews() {
-        etFirstName = findViewById(R.id.etFirstName)
-        etLastName = findViewById(R.id.etLastName)
+        rgRole = findViewById(R.id.rgRole)
+        rbClient = findViewById(R.id.rbClient)
+        rbSeller = findViewById(R.id.rbSeller)
+        tilClientName = findViewById(R.id.tilClientName)
+        etClientName = findViewById(R.id.etClientName)
+        tilSellerName = findViewById(R.id.tilSellerName)
+        etSellerName = findViewById(R.id.etSellerName)
+        tilSellerCode = findViewById(R.id.tilSellerCode)
+        etSellerCode = findViewById(R.id.etSellerCode)
         etEmail = findViewById(R.id.etEmail)
-        etPhone = findViewById(R.id.etPhone)
-        etStoreName = findViewById(R.id.etStoreName)
-        spinnerBusinessType = findViewById(R.id.spinnerBusinessType)
-        etReferralCode = findViewById(R.id.etReferralCode)
         etPassword = findViewById(R.id.etPassword)
         etConfirmPassword = findViewById(R.id.etConfirmPassword)
-        radioGroupRole = findViewById(R.id.radioGroupRole)
         btnRegister = findViewById(R.id.btnRegister)
         tvLogin = findViewById(R.id.tvLogin)
-    }
-    
-    private fun setupSpinner() {
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, businessTypes)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerBusinessType.adapter = adapter
     }
     
     private fun setClickListeners() {
@@ -69,65 +60,44 @@ class RegisterActivity : AppCompatActivity() {
         }
     }
     
+    private fun setupRoleSelection() {
+        rgRole.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.rbClient -> {
+                    tilClientName.visibility = android.view.View.VISIBLE
+                    tilSellerName.visibility = android.view.View.GONE
+                    tilSellerCode.visibility = android.view.View.GONE
+                }
+                R.id.rbSeller -> {
+                    tilClientName.visibility = android.view.View.GONE
+                    tilSellerName.visibility = android.view.View.VISIBLE
+                    tilSellerCode.visibility = android.view.View.VISIBLE
+                }
+            }
+        }
+        
+        // Initially hide seller fields
+        tilSellerName.visibility = android.view.View.GONE
+        tilSellerCode.visibility = android.view.View.GONE
+    }
+    
     private fun register() {
-        val firstName = etFirstName.text.toString().trim()
-        val lastName = etLastName.text.toString().trim()
-        val email = etEmail.text.toString().trim()
-        val phone = etPhone.text.toString().trim()
-        val storeName = etStoreName.text.toString().trim()
-        val businessType = spinnerBusinessType.selectedItem.toString()
-        val referralCode = etReferralCode.text.toString().trim()
-        val password = etPassword.text.toString().trim()
-        val confirmPassword = etConfirmPassword.text.toString().trim()
-        val selectedRoleId = radioGroupRole.checkedRadioButtonId
+        val selectedRoleId = rgRole.checkedRadioButtonId
         
         // Validate inputs
-        if (firstName.isEmpty()) {
-            etFirstName.error = "First name is required"
-            etFirstName.requestFocus()
-            return
-        }
-        
-        if (lastName.isEmpty()) {
-            etLastName.error = "Last name is required"
-            etLastName.requestFocus()
-            return
-        }
-        
-        if (email.isEmpty()) {
-            etEmail.error = "Email is required"
-            etEmail.requestFocus()
-            return
-        }
-        
-        if (phone.isEmpty()) {
-            etPhone.error = "Phone is required"
-            etPhone.requestFocus()
-            return
-        }
-        
         if (selectedRoleId == -1) {
             Toast.makeText(this, "Please select account type", Toast.LENGTH_SHORT).show()
             return
         }
         
-        val role = when (selectedRoleId) {
-            R.id.radioClient -> "client"
-            R.id.radioSeller -> "seller"
-            else -> ""
-        }
+        val email = etEmail.text.toString().trim()
+        val password = etPassword.text.toString().trim()
+        val confirmPassword = etConfirmPassword.text.toString().trim()
         
-        if (role == "seller") {
-            if (storeName.isEmpty()) {
-                etStoreName.error = "Store name is required for sellers"
-                etStoreName.requestFocus()
-                return
-            }
-            
-            if (businessType == "Select Business Type") {
-                Toast.makeText(this, "Please select business type", Toast.LENGTH_SHORT).show()
-                return
-            }
+        if (email.isEmpty()) {
+            etEmail.error = "Email is required"
+            etEmail.requestFocus()
+            return
         }
         
         if (password.isEmpty()) {
@@ -146,6 +116,33 @@ class RegisterActivity : AppCompatActivity() {
             etConfirmPassword.error = "Passwords do not match"
             etConfirmPassword.requestFocus()
             return
+        }
+        
+        when (selectedRoleId) {
+            R.id.rbClient -> {
+                val clientName = etClientName.text.toString().trim()
+                if (clientName.isEmpty()) {
+                    etClientName.error = "Name is required"
+                    etClientName.requestFocus()
+                    return
+                }
+            }
+            R.id.rbSeller -> {
+                val sellerName = etSellerName.text.toString().trim()
+                val sellerCode = etSellerCode.text.toString().trim()
+                
+                if (sellerName.isEmpty()) {
+                    etSellerName.error = "Business name is required"
+                    etSellerName.requestFocus()
+                    return
+                }
+                
+                if (sellerCode.isEmpty()) {
+                    etSellerCode.error = "Seller code is required"
+                    etSellerCode.requestFocus()
+                    return
+                }
+            }
         }
         
         // TODO: Implement actual registration logic with API call

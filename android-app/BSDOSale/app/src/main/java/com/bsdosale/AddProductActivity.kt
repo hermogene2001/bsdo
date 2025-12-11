@@ -5,71 +5,52 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.material.textfield.TextInputEditText
 
 class AddProductActivity : AppCompatActivity() {
     
     private lateinit var imageViewProduct: ImageView
     private lateinit var buttonSelectImage: Button
-    private lateinit var editTextName: EditText
-    private lateinit var editTextDescription: EditText
-    private lateinit var editTextPrice: EditText
-    private lateinit var editTextRentalPrice: EditText
-    private lateinit var editTextStock: EditText
-    private lateinit var spinnerCategory: Spinner
-    private lateinit var radioGroupProductType: RadioGroup
+    private lateinit var editTextProductName: TextInputEditText
+    private lateinit var editTextProductDescription: TextInputEditText
+    private lateinit var editTextProductPrice: TextInputEditText
+    private lateinit var editTextProductQuantity: TextInputEditText
     private lateinit var checkBoxRental: CheckBox
-    private lateinit var buttonSave: Button
-    private lateinit var buttonCancel: Button
+    private lateinit var layoutRentalOptions: LinearLayout
+    private lateinit var editTextDailyRate: TextInputEditText
+    private lateinit var editTextWeeklyRate: TextInputEditText
+    private lateinit var buttonSaveProduct: Button
     
     private val PERMISSION_REQUEST_CODE = 1002
     private val PICK_IMAGE_REQUEST = 1003
     
     private var selectedImageUri: Uri? = null
     
-    private val categories = arrayOf(
-        "Electronics",
-        "Fashion",
-        "Home & Garden",
-        "Sports & Outdoors",
-        "Books",
-        "Toys & Games",
-        "Health & Beauty",
-        "Automotive",
-        "Other"
-    )
-    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_product)
         
         initViews()
-        setupSpinner()
         setClickListeners()
     }
     
     private fun initViews() {
         imageViewProduct = findViewById(R.id.imageViewProduct)
         buttonSelectImage = findViewById(R.id.buttonSelectImage)
-        editTextName = findViewById(R.id.editTextName)
-        editTextDescription = findViewById(R.id.editTextDescription)
-        editTextPrice = findViewById(R.id.editTextPrice)
-        editTextRentalPrice = findViewById(R.id.editTextRentalPrice)
-        editTextStock = findViewById(R.id.editTextStock)
-        spinnerCategory = findViewById(R.id.spinnerCategory)
-        radioGroupProductType = findViewById(R.id.radioGroupProductType)
+        editTextProductName = findViewById(R.id.editTextProductName)
+        editTextProductDescription = findViewById(R.id.editTextProductDescription)
+        editTextProductPrice = findViewById(R.id.editTextProductPrice)
+        editTextProductQuantity = findViewById(R.id.editTextProductQuantity)
         checkBoxRental = findViewById(R.id.checkBoxRental)
-        buttonSave = findViewById(R.id.buttonSave)
-        buttonCancel = findViewById(R.id.buttonCancel)
-    }
-    
-    private fun setupSpinner() {
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, categories)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerCategory.adapter = adapter
+        layoutRentalOptions = findViewById(R.id.layoutRentalOptions)
+        editTextDailyRate = findViewById(R.id.editTextDailyRate)
+        editTextWeeklyRate = findViewById(R.id.editTextWeeklyRate)
+        buttonSaveProduct = findViewById(R.id.buttonSaveProduct)
     }
     
     private fun setClickListeners() {
@@ -78,15 +59,11 @@ class AddProductActivity : AppCompatActivity() {
         }
         
         checkBoxRental.setOnCheckedChangeListener { _, isChecked ->
-            editTextRentalPrice.isEnabled = isChecked
+            layoutRentalOptions.visibility = if (isChecked) View.VISIBLE else View.GONE
         }
         
-        buttonSave.setOnClickListener {
+        buttonSaveProduct.setOnClickListener {
             saveProduct()
-        }
-        
-        buttonCancel.setOnClickListener {
-            finish()
         }
     }
     
@@ -145,69 +122,81 @@ class AddProductActivity : AppCompatActivity() {
     }
     
     private fun saveProduct() {
-        val name = editTextName.text.toString().trim()
-        val description = editTextDescription.text.toString().trim()
-        val priceStr = editTextPrice.text.toString().trim()
-        val rentalPriceStr = editTextRentalPrice.text.toString().trim()
-        val stockStr = editTextStock.text.toString().trim()
-        val category = spinnerCategory.selectedItem.toString()
+        val name = editTextProductName.text.toString().trim()
+        val description = editTextProductDescription.text.toString().trim()
+        val priceStr = editTextProductPrice.text.toString().trim()
+        val quantityStr = editTextProductQuantity.text.toString().trim()
         val isRental = checkBoxRental.isChecked
         
         // Validate inputs
         if (name.isEmpty()) {
-            editTextName.error = "Product name is required"
-            editTextName.requestFocus()
+            editTextProductName.error = "Product name is required"
+            editTextProductName.requestFocus()
             return
         }
         
         if (description.isEmpty()) {
-            editTextDescription.error = "Product description is required"
-            editTextDescription.requestFocus()
+            editTextProductDescription.error = "Product description is required"
+            editTextProductDescription.requestFocus()
             return
         }
         
         if (priceStr.isEmpty()) {
-            editTextPrice.error = "Price is required"
-            editTextPrice.requestFocus()
+            editTextProductPrice.error = "Price is required"
+            editTextProductPrice.requestFocus()
             return
         }
         
         val price = try {
             priceStr.toDouble()
         } catch (e: NumberFormatException) {
-            editTextPrice.error = "Invalid price"
-            editTextPrice.requestFocus()
+            editTextProductPrice.error = "Invalid price"
+            editTextProductPrice.requestFocus()
             return
         }
         
-        var rentalPrice: Double? = null
         if (isRental) {
-            if (rentalPriceStr.isEmpty()) {
-                editTextRentalPrice.error = "Rental price is required for rental products"
-                editTextRentalPrice.requestFocus()
+            val dailyRateStr = editTextDailyRate.text.toString().trim()
+            val weeklyRateStr = editTextWeeklyRate.text.toString().trim()
+            
+            if (dailyRateStr.isEmpty() && weeklyRateStr.isEmpty()) {
+                editTextDailyRate.error = "At least one rate is required for rental products"
+                editTextDailyRate.requestFocus()
                 return
             }
             
-            rentalPrice = try {
-                rentalPriceStr.toDouble()
-            } catch (e: NumberFormatException) {
-                editTextRentalPrice.error = "Invalid rental price"
-                editTextRentalPrice.requestFocus()
-                return
+            if (dailyRateStr.isNotEmpty()) {
+                try {
+                    dailyRateStr.toDouble()
+                } catch (e: NumberFormatException) {
+                    editTextDailyRate.error = "Invalid daily rate"
+                    editTextDailyRate.requestFocus()
+                    return
+                }
+            }
+            
+            if (weeklyRateStr.isNotEmpty()) {
+                try {
+                    weeklyRateStr.toDouble()
+                } catch (e: NumberFormatException) {
+                    editTextWeeklyRate.error = "Invalid weekly rate"
+                    editTextWeeklyRate.requestFocus()
+                    return
+                }
             }
         }
         
-        if (stockStr.isEmpty()) {
-            editTextStock.error = "Stock quantity is required"
-            editTextStock.requestFocus()
+        if (quantityStr.isEmpty()) {
+            editTextProductQuantity.error = "Quantity is required"
+            editTextProductQuantity.requestFocus()
             return
         }
         
-        val stock = try {
-            stockStr.toInt()
+        val quantity = try {
+            quantityStr.toInt()
         } catch (e: NumberFormatException) {
-            editTextStock.error = "Invalid stock quantity"
-            editTextStock.requestFocus()
+            editTextProductQuantity.error = "Invalid quantity"
+            editTextProductQuantity.requestFocus()
             return
         }
         

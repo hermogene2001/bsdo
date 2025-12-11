@@ -48,7 +48,6 @@ id btnRentalProducts
 id btnUpcomingStreams
 id buttonAddProduct
 id buttonAnalytics
-id buttonEndStream
 id buttonLiveStream
 id buttonMyProducts
 id buttonOrders
@@ -56,17 +55,14 @@ id buttonProfile
 id buttonSaveProduct
 id buttonSelectImage
 id buttonSend
-id buttonStartStream
 id buttonToggleChat
 id checkBoxRental
 id editTextDailyRate
-id editTextDescription
 id editTextMessage
 id editTextProductDescription
 id editTextProductName
 id editTextProductPrice
 id editTextProductQuantity
-id editTextTitle
 id editTextWeeklyRate
 id etClientName
 id etConfirmPassword
@@ -84,10 +80,12 @@ id imageViewThumbnail
 id layoutChat
 id layoutRentalOptions
 id layoutStreamInfo
+id logoImage
 id nav_account
 id nav_home
 id nav_live_streams
 id nav_products
+id preloaderLayout
 id progressBar
 id rbClient
 id rbSeller
@@ -97,7 +95,6 @@ id recyclerViewFeaturedProducts
 id recyclerViewLiveStreams
 id recyclerViewProducts
 id rgRole
-id surfaceViewRenderer
 id textViewDescription
 id textViewLiveBadge
 id textViewMessage
@@ -120,9 +117,9 @@ id tvForgotPassword
 id tvLogin
 id tvRegister
 id viewPagerBanner
+id webView
 layout activity_add_product
 layout activity_home
-layout activity_live_stream
 layout activity_login
 layout activity_main
 layout activity_register
@@ -195,3 +192,4 @@ style AppTheme
 style AppTheme.AppBarOverlay
 style AppTheme.NoActionBar
 style AppTheme.PopupOverlay
+xml network_security_config
