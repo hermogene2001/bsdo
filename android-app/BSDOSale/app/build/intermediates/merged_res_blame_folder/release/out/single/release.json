@@ -1,0 +1,154 @@
+[
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_spinner_background.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/spinner_background.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_item_chat_message_user.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/item_chat_message_user.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_logo.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/logo.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_send.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_send.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_orders.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_orders.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_fragment_home.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/fragment_home.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_chat_bubble_user.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/chat_bubble_user.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_analytics.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_analytics.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_item_chat_message_seller.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/item_chat_message_seller.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_activity_live_stream.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/activity_live_stream.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_live_badge.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/live_badge.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_activity_seller_dashboard.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/activity_seller_dashboard.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_activity_register.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/activity_register.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_search.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_search.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_account.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_account.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_home.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_home.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_shopping_cart.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_shopping_cart.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_chat_bubble_seller.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/chat_bubble_seller.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_type_background.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/type_background.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_activity_home.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/activity_home.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_filter.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_filter.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_activity_main.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_item_live_stream.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/item_live_stream.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_add_product.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_add_product.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_chat.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_chat.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_activity_add_product.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/activity_add_product.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_rental_badge.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/rental_badge.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_item_product.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/item_product.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_app_logo.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_app_logo.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_products.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_products.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/menu_bottom_navigation_menu.xml.flat",
+        "source": "com.bsdosale.app-main-35:/menu/bottom_navigation_menu.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_fragment_products.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/fragment_products.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_ic_live.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/ic_live.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_buy_badge.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/buy_badge.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/drawable_search_background.xml.flat",
+        "source": "com.bsdosale.app-main-35:/drawable/search_background.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_activity_login.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/activity_login.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_fragment_live_streams.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/fragment_live_streams.xml"
+    },
+    {
+        "merged": "com.bsdosale.app-merged_res-34:/layout_activity_watch_stream.xml.flat",
+        "source": "com.bsdosale.app-main-35:/layout/activity_watch_stream.xml"
+    }
+]
