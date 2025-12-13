@@ -665,38 +665,25 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="public/js/webrtc-client.js"></script>
     <script>
-        // Global variables
-        let peerConnection;
-        const roomId = 'stream_<?php echo $stream_id; ?>';
-        let messagePollingInterval;
-        let lastMessageId = 0;
-
-        // WebRTC configuration
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        };
-        let lastMessageId = 0;
-
-        // WebRTC configuration
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-
+        let webRTCClient = null;
+        
         // Initialize when page loads
         $(document).ready(function() {
             <?php if ($stream['is_live']): ?>
                 // Check WebRTC support
                 if (!window.RTCPeerConnection) {
-                    updateConnectionStatus('error', 'Browser Not Supported', 'Your browser doesn\'t support live streaming. Please use Chrome, Firefox, or Edge.');
+                    updateConnectionStatus('error', 'Browser Not Supported');
                     return;
                 }
                 
-                // Initialize WebRTC
-                initializeWebRTC();
+                // Initialize WebRTC client
+                webRTCClient = new WebRTCClient({
+                    streamId: <?php echo $stream_id; ?>,
+                    videoElement: document.getElementById('remoteVideo'),
+                    onStatusChange: updateConnectionStatus
+                });
                 
                 // Setup chat
                 setupChat();
@@ -704,7 +691,7 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
                 // Notify server that user joined
                 updateViewerStatus('join');
             <?php else: ?>
-                updateConnectionStatus('error', 'Stream Offline', 'This stream is not currently live.');
+                updateConnectionStatus('error', 'Stream Offline');
             <?php endif; ?>
             
             // Update viewer count periodically
@@ -713,32 +700,34 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
         });
 
         // Update connection status UI
-        function updateConnectionStatus(status, title, message) {
+        function updateConnectionStatus(status, message) {
             const statusElement = $('#connectionStatus');
             const videoElement = $('#remoteVideo');
             const fallbackElement = $('#videoFallback');
             
-            statusElement.removeClass('status-connecting status-connected status-error')
-                        .addClass('status-' + status);
+            // Update status element classes
+            statusElement.removeClass('connecting connected error')
+                        .addClass(status);
             
             if (status === 'connected') {
-                statusElement.html(`<i class="fas fa-check-circle"></i> ${title}`);
+                statusElement.html(`<i class="fas fa-check-circle"></i> ${message}`);
                 videoElement.show();
                 fallbackElement.hide();
             } else {
-                const icon = status === 'error' ? 'exclamation-triangle' : 'spinner fa-spin';
-                statusElement.html(`<i class="fas ${icon}"></i> ${title}`);
+                const icons = {
+                    'connecting': 'spinner fa-spin',
+                    'reconnecting': 'spinner fa-spin',
+                    'error': 'exclamation-triangle',
+                    'closed': 'times'
+                };
+                const icon = icons[status] || 'info-circle';
+                statusElement.html(`<i class="fas ${icon}"></i> ${message}`);
                 videoElement.hide();
-                fallbackElement.html(`
-                    <div class="text-center">
-                        <i class="fas ${icon} fa-3x mb-3"></i>
-                        <h4>${title}</h4>
-                        <p class="text-muted">${message}</p>
-                        ${status === 'error' ? 
-                            '<button class="btn btn-primary mt-3" onclick="initializeWebRTC()">' +
-                            '<i class="fas fa-redo me-1"></i>Retry Connection</button>' : ''}
-                    </div>
-                `).show();
+                
+                // Show fallback content for non-connected states
+                if (status !== 'connected') {
+                    fallbackElement.show();
+                }
             }
         }
 
@@ -771,57 +760,6 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             `;
             $('#chatMessages').append(errorHtml);
-        }
-
-        // Initialize WebRTC connection
-        async function initializeWebRTC() {
-            try {
-                updateConnectionStatus('connecting', 'Connecting...', 'Joining live stream');
-                
-                // Create peer connection
-                peerConnection = new RTCPeerConnection(configuration);
-                
-                // Handle incoming tracks (video/audio)
-                peerConnection.ontrack = function(event) {
-                    console.log('Received track:', event.track.kind);
-                    const remoteVideo = document.getElementById('remoteVideo');
-                    if (event.streams && event.streams[0]) {
-                        remoteVideo.srcObject = event.streams[0];
-                        updateConnectionStatus('connected', 'Live', 'Stream connected');
-                    }
-                };
-
-                // Handle ICE candidates
-                peerConnection.onicecandidate = function(event) {
-                    if (event.candidate) {
-                        // Send the ICE candidate to the server
-                        $.post('webrtc_server.php', {
-                            action: 'send_ice_candidate',
-                            room_id: roomId,
-                            candidate: JSON.stringify(event.candidate)
-                        });
-                    }
-                };
-
-                // Create and send offer
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                
-                // Send offer to server
-                const response = await $.post('webrtc_server.php', {
-                    action: 'send_offer',
-                    room_id: roomId,
-                    offer: JSON.stringify(offer)
-                });
-                
-                // Handle answer from server
-                if (response.answer) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(JSON.parse(response.answer)));
-                }
-            } catch (error) {
-                console.error('Error initializing WebRTC:', error);
-                updateConnectionStatus('error', 'Connection Error', 'Unable to connect to streaming server');
-            }
         }
 
         // Setup chat functionality
@@ -953,8 +891,8 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
             if (messagePollingInterval) {
                 clearInterval(messagePollingInterval);
             }
-            if (peerConnection) {
-                peerConnection.close();
+            if (webRTCClient) {
+                webRTCClient.cleanup();
             }
             // Notify server that user is leaving
             navigator.sendBeacon('update_viewer_status.php', JSON.stringify({

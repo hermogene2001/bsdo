@@ -907,44 +907,74 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
             }, 1000); // Poll every second
         }
 
+        // Track connected clients
+        let connectedClients = new Set();
+        
         // Handle incoming WebRTC messages
         function handleWebRTCMessage(message) {
+            // Track new client connections
+            if (!connectedClients.has(message.sender_id)) {
+                connectedClients.add(message.sender_id);
+                console.log('New client connected:', message.sender_id);
+                // Create offer for new client
+                createOfferForClient();
+            }
+            
             const data = JSON.parse(message.message_data);
             
             switch (message.message_type) {
-                case 'offer':
-                    handleOffer(data);
-                    break;
                 case 'answer':
                     handleAnswer(data);
                     break;
                 case 'candidate':
                     handleCandidate(data);
                     break;
+                default:
+                    // Ignore other message types
+                    break;
             }
         }
 
-        // Handle incoming offer
-        async function handleOffer(offer) {
+        // Handle incoming answer (from client)
+        async function handleAnswer(answer) {
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (error) {
+                console.error('Error handling answer:', error);
+            }
+        }
+        
+        // Handle incoming ICE candidate
+        async function handleCandidate(candidate) {
+            try {
+                if (peerConnection) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+            } catch (error) {
+                console.error('Error handling candidate:', error);
+            }
+        }
+        
+        // Create offer for new clients
+        async function createOfferForClient() {
             if (!peerConnection) {
                 createPeerConnection();
             }
             
             try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
                 
-                // Send answer back
+                // Send offer to signaling server
                 await fetch('../webrtc_server.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `action=send_answer&room_id=${roomId}&answer=${encodeURIComponent(JSON.stringify(answer))}`
+                    body: `action=send_offer&room_id=${roomId}&offer=${encodeURIComponent(JSON.stringify(offer))}`
                 });
             } catch (error) {
-                console.error('Error handling offer:', error);
+                console.error('Error creating offer:', error);
             }
         }
 

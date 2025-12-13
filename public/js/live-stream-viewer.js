@@ -32,6 +32,9 @@ class LiveStreamViewer {
 
     async setupConnection() {
         try {
+            // Join the stream room first
+            await this.joinStream();
+            
             this.peerConnection = new RTCPeerConnection(this.stunServers);
             
             // Handle incoming tracks
@@ -55,18 +58,8 @@ class LiveStreamViewer {
                 }
             };
 
-            // Get offer from server
-            const offer = await this.getStreamOffer();
-            if (!offer) {
-                throw new Error('Failed to get stream offer');
-            }
-
-            await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await this.peerConnection.createAnswer();
-            await this.peerConnection.setLocalDescription(answer);
-
-            // Send answer to server
-            await this.sendAnswer(answer);
+            // Start polling for signaling messages
+            this.startSignaling();
 
         } catch (error) {
             console.error('Connection setup error:', error);
@@ -75,27 +68,29 @@ class LiveStreamViewer {
         }
     }
 
-    async getStreamOffer() {
+    async joinStream() {
         try {
+            // First join the room
             const response = await fetch('webrtc_server.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: new URLSearchParams({
-                    action: 'get_offer',
+                    action: 'join_room',
                     stream_id: this.streamId
                 })
             });
 
             const data = await response.json();
-            if (!data.success || !data.offer) {
-                throw new Error('Invalid offer received');
+            if (!data.success || !data.room_id) {
+                throw new Error('Failed to join stream room');
             }
 
-            return data.offer;
+            this.roomId = data.room_id;
+            return data.room_id;
         } catch (error) {
-            console.error('Error getting stream offer:', error);
+            console.error('Error joining stream:', error);
             throw error;
         }
     }
@@ -120,6 +115,8 @@ class LiveStreamViewer {
     }
 
     async sendIceCandidate(candidate) {
+        if (!this.roomId) return;
+        
         try {
             await fetch('webrtc_server.php', {
                 method: 'POST',
@@ -127,13 +124,112 @@ class LiveStreamViewer {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: new URLSearchParams({
-                    action: 'ice_candidate',
-                    stream_id: this.streamId,
+                    action: 'send_candidate',
+                    room_id: this.roomId,
                     candidate: JSON.stringify(candidate)
                 })
             });
         } catch (error) {
             console.error('Error sending ICE candidate:', error);
+        }
+    }
+    
+    async sendAnswer(answer) {
+        if (!this.roomId) return;
+        
+        try {
+            await fetch('webrtc_server.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    action: 'send_answer',
+                    room_id: this.roomId,
+                    answer: JSON.stringify(answer)
+                })
+            });
+        } catch (error) {
+            console.error('Error sending answer:', error);
+        }
+    }
+    
+    startSignaling() {
+        if (!this.roomId) return;
+        
+        let lastMessageId = 0;
+        
+        const pollMessages = async () => {
+            if (!this.roomId) return;
+            
+            try {
+                const response = await fetch('webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        action: 'get_messages',
+                        room_id: this.roomId,
+                        last_id: lastMessageId
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success && data.messages) {
+                    for (const message of data.messages) {
+                        await this.handleSignalingMessage(message);
+                        lastMessageId = Math.max(lastMessageId, message.id);
+                    }
+                }
+            } catch (error) {
+                console.error('Error polling messages:', error);
+            }
+
+            if (this.roomId) {
+                setTimeout(pollMessages, 1000);
+            }
+        };
+
+        pollMessages();
+    }
+    
+    async handleSignalingMessage(message) {
+        try {
+            const data = JSON.parse(message.message_data);
+            
+            switch (message.message_type) {
+                case 'offer':
+                    await this.handleOffer(data);
+                    break;
+                case 'answer':
+                    // We don't expect to receive answers as client
+                    break;
+                case 'candidate':
+                    await this.handleCandidate(data);
+                    break;
+            }
+        } catch (error) {
+            console.error('Error handling signaling message:', error);
+        }
+    }
+    
+    async handleOffer(offer) {
+        try {
+            await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await this.peerConnection.createAnswer();
+            await this.peerConnection.setLocalDescription(answer);
+            await this.sendAnswer(answer);
+        } catch (error) {
+            console.error('Error handling offer:', error);
+        }
+    }
+    
+    async handleCandidate(candidate) {
+        try {
+            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (error) {
+            console.error('Error handling ICE candidate:', error);
         }
     }
 

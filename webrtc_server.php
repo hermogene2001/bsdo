@@ -247,6 +247,44 @@ try {
             ]);
             break;
             
+        case 'send_message':
+            $room_id = $_POST['room_id'] ?? '';
+            $message_type = $_POST['message_type'] ?? '';
+            $message_data = $_POST['message_data'] ?? '';
+            
+            if (empty($room_id) || empty($message_type) || empty($message_data)) {
+                throw new Exception('Missing required parameters');
+            }
+            
+            // Validate message type
+            if (!in_array($message_type, ['offer', 'answer', 'candidate'])) {
+                throw new Exception('Invalid message type');
+            }
+            
+            // Validate JSON
+            $decoded = json_decode($message_data);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('Invalid message data format');
+            }
+            
+            // Store message in database
+            $stmt = $pdo->prepare("
+                INSERT INTO webrtc_messages 
+                (room_id, sender_id, message_type, message_data, created_at) 
+                VALUES (?, ?, ?, ?, NOW())
+            ");
+            $result = $stmt->execute([$room_id, $user_id, $message_type, $message_data]);
+            
+            if (!$result) {
+                throw new Exception('Failed to store message');
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message_id' => $pdo->lastInsertId()
+            ]);
+            break;
+            
         case 'get_messages':
             $room_id = $_POST['room_id'] ?? $_GET['room_id'] ?? '';
             $last_id = intval($_POST['last_id'] ?? $_GET['last_id'] ?? 0);
