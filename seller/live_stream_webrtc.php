@@ -21,13 +21,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Generate unique stream key
                 $stream_key = 'stream_' . $seller_id . '_' . time() . '_' . bin2hex(random_bytes(8));
+                // Generate invitation code
+                $invitation_code = bin2hex(random_bytes(8));
+                // Generate RTMP and HLS URLs
+                $rtmp_url = 'rtmp://your-rtmp-server.com/live/' . $stream_key;
+                $hls_url = 'https://your-hls-server.com/live/' . $stream_key . '/index.m3u8';
                 
                 try {
                     $stmt = $pdo->prepare("
-                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, is_live, status, started_at) 
-                        VALUES (?, ?, ?, ?, ?, 1, 'live', NOW())
+                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, rtmp_url, hls_url, is_live, status, started_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'live', NOW())
                     ");
-                    $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key]);
+                    $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key, $invitation_code, $rtmp_url, $hls_url]);
                     $stream_id = $pdo->lastInsertId();
                     
                     header("Location: live_stream_webrtc.php?stream_id=" . $stream_id);
@@ -204,7 +209,7 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Stream with Camera - BSDO Seller</title>
+    <title>Live Stream with RTMP - BSDO Seller</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -269,37 +274,21 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
             font-weight: bold;
         }
         
-        .camera-controls {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
+        /* RTMP Stream Info */
+        .rtmp-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
         }
         
-        .camera-btn {
-            background: rgba(0, 0, 0, 0.7);
+        .copy-btn {
+            background: #4e73df;
             border: none;
             color: white;
-            padding: 10px 15px;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .camera-btn:hover {
-            background: rgba(0, 0, 0, 0.9);
-        }
-        
-        .camera-btn.active {
-            background: #e74a3b;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
         }
         
         .status-indicator {
@@ -414,7 +403,7 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
         <!-- WebRTC Status Notice -->
         <div class="alert alert-info">
             <i class="fas fa-info-circle me-2"></i>
-            <strong>WebRTC Streaming:</strong> This interface now supports actual video streaming using WebRTC technology.
+            <strong>RTMP Streaming:</strong> This interface now supports RTMP streaming technology.
         </div>
 
         <?php if ($current_stream): ?>
@@ -422,30 +411,17 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
             <div class="row">
                 <div class="col-lg-8">
                     <div class="stream-container">
-                        <video id="videoElement" autoplay muted></video>
                         <div class="status-indicator">
                             <i class="fas fa-circle me-1"></i>LIVE
                         </div>
                         <div class="viewer-count">
                             <i class="fas fa-eye me-1"></i><?php echo $current_stream['current_viewers']; ?> watching
                         </div>
-                        <!-- Connection status indicator -->
-                        <div id="connectionStatus" class="position-absolute top-0 end-0 m-3 p-2 bg-info text-white rounded" style="display: none;">
-                            <i class="fas fa-sync fa-spin me-1"></i> Connecting...
-                        </div>
-                        <div class="camera-controls">
-                            <button class="camera-btn" id="startCamera" title="Start Camera">
-                                <i class="fas fa-video"></i>
-                            </button>
-                            <button class="camera-btn" id="stopCamera" title="Stop Camera" style="display: none;">
-                                <i class="fas fa-video-slash"></i>
-                            </button>
-                            <button class="camera-btn" id="switchCamera" title="Switch Camera" style="display: none;">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                            <button class="camera-btn" id="muteAudio" title="Mute Audio" style="display: none;">
-                                <i class="fas fa-microphone"></i>
-                            </button>
+                        <!-- RTMP Stream Player -->
+                        <div id="rtmpPlayerContainer">
+                            <video id="rtmpPlayer" controls autoplay muted style="width: 100%; height: 500px; background: #000;">
+                                Your browser does not support the video tag.
+                            </video>
                         </div>
                     </div>
 
@@ -468,6 +444,36 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
                                         <i class="fas fa-stop me-2"></i>End Stream
                                     </button>
                                 </form>
+                            </div>
+                        </div>
+                        
+                        <!-- RTMP Stream Information -->
+                        <div class="rtmp-info mt-3">
+                            <h5><i class="fas fa-broadcast-tower me-2"></i>RTMP Stream Information</h5>
+                            <div class="row">
+                                <div class="col-md-9">
+                                    <div class="mb-2">
+                                        <label class="form-label">RTMP Server URL:</label>
+                                        <input type="text" class="form-control bg-dark text-white" id="rtmpServerUrl" value="<?php echo htmlspecialchars(str_replace('/' . $current_stream['stream_key'], '', $current_stream['rtmp_url'])); ?>" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Stream Key:</label>
+                                        <input type="text" class="form-control bg-dark text-white" id="streamKey" value="<?php echo htmlspecialchars($current_stream['stream_key']); ?>" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
+                                    <button class="btn copy-btn w-100" onclick="copyStreamInfo()">
+                                        <i class="fas fa-copy me-1"></i>Copy Info
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <p class="mb-1"><strong>Instructions:</strong></p>
+                                <ul class="mb-0">
+                                    <li>Use OBS Studio or similar software to stream</li>
+                                    <li>Set the server URL and stream key in your streaming software</li>
+                                    <li>Start streaming from your software to go live</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -722,7 +728,7 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
                             <div class="text-center">
                                 <button type="submit" class="btn btn-live">
-                                    <i class="fas fa-video me-2"></i>Start Live Stream with Camera
+                                    <i class="fas fa-video me-2"></i>Start Live Stream with RTMP
                                 </button>
                             </div>
                         </form>
@@ -761,339 +767,23 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let stream = null;
-        let currentFacingMode = 'user';
-        let isMuted = false;
-        let peerConnection = null;
-        let roomId = null;
-        let localStream = null;
-        let messagePollingInterval = null;
-        let lastMessageId = 0;
-
-        // WebRTC configuration
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        };
-
-        // Start camera when page loads if stream is active
-        document.addEventListener('DOMContentLoaded', function() {
-            <?php if ($current_stream): ?>
-                startCamera();
-                initializeWebRTC();
-            <?php endif; ?>
-        });
-
-        async function startCamera() {
-            try {
-                // Request camera access
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: currentFacingMode,
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: true
-                });
-
-                const videoElement = document.getElementById('videoElement');
-                videoElement.srcObject = localStream;
-
-                // Show camera controls
-                document.getElementById('startCamera').style.display = 'none';
-                document.getElementById('stopCamera').style.display = 'flex';
-                document.getElementById('switchCamera').style.display = 'flex';
-                document.getElementById('muteAudio').style.display = 'flex';
-
-                console.log('Camera started successfully');
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                alert('Error accessing camera: ' + error.message);
-            }
-        }
-
-        function stopCamera() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-                
-                const videoElement = document.getElementById('videoElement');
-                videoElement.srcObject = null;
-
-                // Hide camera controls
-                document.getElementById('startCamera').style.display = 'flex';
-                document.getElementById('stopCamera').style.display = 'none';
-                document.getElementById('switchCamera').style.display = 'none';
-                document.getElementById('muteAudio').style.display = 'none';
-            }
-        }
-
-        async function switchCamera() {
-            if (localStream) {
-                stopCamera();
-                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-                await startCamera();
-            }
-        }
-
-        function toggleMute() {
-            if (localStream) {
-                const audioTracks = localStream.getAudioTracks();
-                audioTracks.forEach(track => {
-                    track.enabled = !track.enabled;
-                });
-                isMuted = !isMuted;
-                
-                const muteBtn = document.getElementById('muteAudio');
-                muteBtn.innerHTML = isMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
-            }
-        }
-
-        // Initialize WebRTC
-        async function initializeWebRTC() {
-            <?php if ($current_stream): ?>
-            try {
-                // Create room for this stream
-                const response = await fetch('../webrtc_server.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: 'action=create_room&stream_id=<?php echo $current_stream['id']; ?>'
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    roomId = data.room_id;
-                    console.log('WebRTC room created:', roomId);
-                    
-                    // Start polling for messages
-                    startMessagePolling();
-                } else {
-                    console.error('Failed to create WebRTC room:', data.error);
-                }
-            } catch (error) {
-                console.error('Error initializing WebRTC:', error);
-            }
-            <?php endif; ?>
-        }
-
-        // Start polling for WebRTC messages
-        function startMessagePolling() {
-            messagePollingInterval = setInterval(async () => {
-                if (!roomId) return;
-                
-                try {
-                    const response = await fetch('../webrtc_server.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: `action=get_messages&room_id=${roomId}&last_id=${lastMessageId}`
-                    });
-                    
-                    const data = await response.json();
-                    if (data.success && data.messages.length > 0) {
-                        data.messages.forEach(message => {
-                            handleWebRTCMessage(message);
-                            lastMessageId = Math.max(lastMessageId, message.id);
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error polling messages:', error);
-                }
-            }, 1000); // Poll every second
-        }
-
-        // Track connected clients
-        let connectedClients = new Set();
-        
-        // Handle incoming WebRTC messages
-        function handleWebRTCMessage(message) {
-            // Track new client connections
-            if (!connectedClients.has(message.sender_id)) {
-                connectedClients.add(message.sender_id);
-                console.log('New client connected:', message.sender_id);
-                // Create offer for new client
-                createOfferForClient();
-            }
+        // Copy stream information to clipboard
+        function copyStreamInfo() {
+            const rtmpUrl = document.getElementById('rtmpServerUrl').value;
+            const streamKey = document.getElementById('streamKey').value;
+            const copyText = `RTMP Server: ${rtmpUrl}\nStream Key: ${streamKey}`;
             
-            const data = JSON.parse(message.message_data);
-            
-            switch (message.message_type) {
-                case 'answer':
-                    handleAnswer(data);
-                    break;
-                case 'candidate':
-                    handleCandidate(data);
-                    break;
-                default:
-                    // Ignore other message types
-                    break;
-            }
-        }
-
-        // Handle incoming answer (from client)
-        async function handleAnswer(answer) {
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            } catch (error) {
-                console.error('Error handling answer:', error);
-            }
-        }
-        
-        // Handle incoming ICE candidate
-        async function handleCandidate(candidate) {
-            try {
-                if (peerConnection) {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                }
-            } catch (error) {
-                console.error('Error handling candidate:', error);
-            }
-        }
-        
-        // Create offer for new clients
-        async function createOfferForClient() {
-            if (!peerConnection) {
-                createPeerConnection();
-            }
-            
-            try {
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                
-                // Send offer to signaling server
-                await fetch('../webrtc_server.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `action=send_offer&room_id=${roomId}&offer=${encodeURIComponent(JSON.stringify(offer))}`
-                });
-            } catch (error) {
-                console.error('Error creating offer:', error);
-            }
-        }
-
-        // Handle incoming answer
-        async function handleAnswer(answer) {
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            } catch (error) {
-                console.error('Error handling answer:', error);
-            }
-        }
-
-        // Handle incoming ICE candidate
-        async function handleCandidate(candidate) {
-            try {
-                if (peerConnection) {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                }
-            } catch (error) {
-                console.error('Error handling candidate:', error);
-            }
-        }
-
-        // Create peer connection
-        function createPeerConnection() {
-            peerConnection = new RTCPeerConnection(configuration);
-            
-            // Add local stream to peer connection
-            if (localStream) {
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-            }
-            
-            // Handle ICE candidates
-            peerConnection.onicecandidate = async (event) => {
-                if (event.candidate) {
-                    try {
-                        await fetch('../webrtc_server.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            body: `action=send_candidate&room_id=${roomId}&candidate=${encodeURIComponent(JSON.stringify(event.candidate))}`
-                        });
-                    } catch (error) {
-                        console.error('Error sending candidate:', error);
-                    }
-                }
-            };
-            
-            // Handle connection state changes
-            peerConnection.onconnectionstatechange = () => {
-                console.log('Connection state:', peerConnection.connectionState);
-                const statusElement = document.getElementById('connectionStatus');
-                
-                if (statusElement) {
-                    switch (peerConnection.connectionState) {
-                        case 'new':
-                            statusElement.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i> Initializing...';
-                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-info text-white rounded';
-                            statusElement.style.display = 'block';
-                            break;
-                        case 'connecting':
-                            statusElement.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i> Connecting...';
-                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-warning text-dark rounded';
-                            statusElement.style.display = 'block';
-                            break;
-                        case 'connected':
-                            statusElement.innerHTML = '<i class="fas fa-check me-1"></i> Connected';
-                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-success text-white rounded';
-                            setTimeout(() => {
-                                statusElement.style.display = 'none';
-                            }, 3000);
-                            break;
-                        case 'disconnected':
-                            statusElement.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Disconnected';
-                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-danger text-white rounded';
-                            statusElement.style.display = 'block';
-                            break;
-                        case 'failed':
-                            statusElement.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Connection Failed';
-                            statusElement.className = 'position-absolute top-0 end-0 m-3 p-2 bg-danger text-white rounded';
-                            statusElement.style.display = 'block';
-                            break;
-                        case 'closed':
-                            statusElement.style.display = 'none';
-                            break;
-                    }
-                }
-            };
-            
-            // Handle ICE connection state changes
-            peerConnection.oniceconnectionstatechange = () => {
-                console.log('ICE connection state:', peerConnection.iceConnectionState);
-            };
-        }
-
-        // Create offer for clients to connect
-        async function createOffer() {
-            if (!peerConnection) {
-                createPeerConnection();
-            }
-            
-            try {
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                
-                // Send offer to signaling server
-                await fetch('../webrtc_server.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `action=send_offer&room_id=${roomId}&offer=${encodeURIComponent(JSON.stringify(offer))}`
-                });
-            } catch (error) {
-                console.error('Error creating offer:', error);
-            }
+            navigator.clipboard.writeText(copyText).then(() => {
+                // Show success feedback
+                const copyBtn = document.querySelector('.copy-btn');
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
         }
 
         // Message system functions
@@ -1313,12 +1003,6 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
-        // Event listeners
-        document.getElementById('startCamera').addEventListener('click', startCamera);
-        document.getElementById('stopCamera').addEventListener('click', stopCamera);
-        document.getElementById('switchCamera').addEventListener('click', switchCamera);
-        document.getElementById('muteAudio').addEventListener('click', toggleMute);
-        
         // Message system event listeners
         document.getElementById('sendMessageBtn').addEventListener('click', sendMessage);
         document.getElementById('messageInput').addEventListener('keypress', function(e) {
@@ -1334,21 +1018,8 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Clean up when page unloads
         window.addEventListener('beforeunload', function() {
-            stopCamera();
-            if (messagePollingInterval) {
-                clearInterval(messagePollingInterval);
-            }
             if (messageCheckInterval) {
                 clearInterval(messageCheckInterval);
-            }
-            if (roomId) {
-                fetch('../webrtc_server.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `action=leave_room&room_id=${roomId}`
-                });
             }
         });
     </script>

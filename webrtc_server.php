@@ -1,31 +1,19 @@
 <?php
-// WebRTC signaling server implementation
-session_start();
-require_once 'config.php';
+// WebRTC to RTMP migration notice
+// This WebRTC server has been deprecated and replaced with RTMP streaming
+// Please use rtmp_server.php for streaming functionality
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
-// Enable error logging
-error_reporting(E_ALL);
-ini_set('display_errors', 0); // Don't display errors in production
-ini_set('log_errors', 1);
-ini_set('error_log', __DIR__ . '/webrtc_error.log');
+// Return deprecation message
+http_response_code(410); // Gone
+echo json_encode([
+    'success' => false,
+    'error' => 'WebRTC streaming has been deprecated',
+    'message' => 'This WebRTC server has been replaced with RTMP streaming. Please use rtmp_server.php for streaming functionality.'
+]);
+exit;
 
-// Handle preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit(0);
-}
-
-// Check authentication
-if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
-}
 
 $user_id = $_SESSION['user_id'];
 $action = $_POST['action'] ?? $_GET['action'] ?? '';

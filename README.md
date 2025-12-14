@@ -2,6 +2,8 @@
 
 This is a production-ready starting point for your marketplace: clients, sellers, and admin. It includes role-based auth, product CRUD with **file uploads (stored on server, not URLs)**, simple chat, and an admin panel skeleton.
 
+**Important Database Update:** If you're upgrading from an earlier version, run `update_database_rtmp_invitation.php` to update your database schema with RTMP/HLS streaming support and invitation code functionality.
+
 ---
 
 ## 1) Folder Structure

@@ -10,6 +10,11 @@ CREATE TABLE IF NOT EXISTS `live_streams` (
   `category_id` int(11) DEFAULT NULL,
   `thumbnail_url` varchar(500) DEFAULT NULL,
   `stream_key` varchar(100) NOT NULL,
+  `invitation_code` varchar(32) DEFAULT NULL,
+  `invitation_enabled` tinyint(1) DEFAULT 1,
+  `invitation_expiry` datetime DEFAULT NULL,
+  `rtmp_url` varchar(500) DEFAULT NULL,
+  `hls_url` varchar(500) DEFAULT NULL,
   `is_live` tinyint(1) DEFAULT 0,
   `viewer_count` int(11) DEFAULT 0,
   `max_viewers` int(11) DEFAULT 0,
@@ -27,6 +32,9 @@ CREATE TABLE IF NOT EXISTS `live_streams` (
   KEY `status` (`status`),
   KEY `scheduled_at` (`scheduled_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Add index for invitation_code
+CREATE INDEX idx_invitation_code ON live_streams(invitation_code);
 
 -- Table for live stream viewers (to track who's watching)
 CREATE TABLE IF NOT EXISTS `live_stream_viewers` (

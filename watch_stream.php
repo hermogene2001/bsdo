@@ -484,10 +484,18 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
             <div class="col-lg-8">
                 <!-- Stream Video -->
                 <div class="stream-container">
-                    <div id="connectionStatus" class="connection-status">
-                        <i class="fas fa-spinner fa-spin"></i> Connecting...
+                    <div class="status-indicator">
+                        <i class="fas fa-circle me-1"></i>LIVE
                     </div>
-                    <video id="remoteVideo" autoplay playsinline style="width: 100%;"></video>
+                    <div class="viewer-count">
+                        <i class="fas fa-eye me-1"></i><span id="viewerCount"><?php echo $stream['current_viewers']; ?></span> watching
+                    </div>
+                    <div id="connectionStatus" class="connection-status connecting">
+                        <i class="fas fa-spinner fa-spin me-1"></i>Connecting...
+                    </div>
+                    <!-- HLS video element -->
+                    <video id="hlsPlayer" controls autoplay muted style="width: 100%; height: 500px; background: #000;"></video>
+                    <!-- Fallback content when video is not available -->
                     <div id="videoFallback" class="video-fallback">
                         <div class="text-center">
                             <i class="fas fa-spinner fa-spin fa-3x mb-3"></i>
@@ -495,25 +503,7 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
                             <p class="text-muted">Please wait while we connect you to the live stream...</p>
                         </div>
                     </div>
-                            <i class="fas fa-circle me-1"></i>LIVE
-                        </div>
-                        <div class="viewer-count">
-                            <i class="fas fa-eye me-1"></i><span id="viewerCount"><?php echo $stream['current_viewers']; ?></span> watching
-                        </div>
-                        <div id="connectionStatus" class="connection-status connecting">
-                            <i class="fas fa-spinner fa-spin me-1"></i>Connecting...
-                        </div>
-                        <!-- Remote video element for WebRTC streaming -->
-                        <video id="remoteVideo" autoplay playsinline></video>
-                        <!-- Fallback content when video is not available -->
-                        <div id="videoFallback">
-                            <div class="text-center">
-                                <i class="fas fa-video fa-3x mb-3"></i>
-                                <h4>Connecting to Live Stream...</h4>
-                                <p class="text-muted">Establishing connection to seller's video feed</p>
-                            </div>
-                        </div>
-                    </div>
+                </div>
                 </div>
 
                 <!-- Stream Info -->
@@ -665,25 +655,17 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="public/js/webrtc-client.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script>
-        let webRTCClient = null;
+        let hls = null;
+        let messagePollingInterval = null;
+        let lastMessageId = 0;
         
         // Initialize when page loads
         $(document).ready(function() {
             <?php if ($stream['is_live']): ?>
-                // Check WebRTC support
-                if (!window.RTCPeerConnection) {
-                    updateConnectionStatus('error', 'Browser Not Supported');
-                    return;
-                }
-                
-                // Initialize WebRTC client
-                webRTCClient = new WebRTCClient({
-                    streamId: <?php echo $stream_id; ?>,
-                    videoElement: document.getElementById('remoteVideo'),
-                    onStatusChange: updateConnectionStatus
-                });
+                // Initialize HLS player
+                initializeHLS();
                 
                 // Setup chat
                 setupChat();
@@ -699,10 +681,56 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
             updateViewerCount();
         });
 
+        // Initialize HLS player
+        function initializeHLS() {
+            const video = document.getElementById('hlsPlayer');
+            const streamUrl = `<?php echo addslashes($stream['hls_url']); ?>`;
+            
+            if (Hls.isSupported()) {
+                hls = new Hls();
+                hls.loadSource(streamUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    updateConnectionStatus('connected', 'Stream connected');
+                    video.play();
+                });
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                updateConnectionStatus('error', 'Network error. Retrying...');
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                updateConnectionStatus('error', 'Media error. Retrying...');
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                updateConnectionStatus('error', 'Fatal error. Cannot recover.');
+                                hls.destroy();
+                                break;
+                        }
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Fallback for Safari
+                video.src = streamUrl;
+                video.addEventListener('loadedmetadata', function() {
+                    updateConnectionStatus('connected', 'Stream connected');
+                    video.play();
+                });
+                video.addEventListener('error', function() {
+                    updateConnectionStatus('error', 'Error playing stream');
+                });
+            } else {
+                updateConnectionStatus('error', 'HLS not supported in your browser');
+            }
+        }
+
         // Update connection status UI
         function updateConnectionStatus(status, message) {
             const statusElement = $('#connectionStatus');
-            const videoElement = $('#remoteVideo');
+            const videoElement = $('#hlsPlayer');
             const fallbackElement = $('#videoFallback');
             
             // Update status element classes
@@ -891,8 +919,8 @@ $seller_products = $seller_products_stmt->fetchAll(PDO::FETCH_ASSOC);
             if (messagePollingInterval) {
                 clearInterval(messagePollingInterval);
             }
-            if (webRTCClient) {
-                webRTCClient.cleanup();
+            if (hls) {
+                hls.destroy();
             }
             // Notify server that user is leaving
             navigator.sendBeacon('update_viewer_status.php', JSON.stringify({
