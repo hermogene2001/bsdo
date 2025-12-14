@@ -24,8 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Generate invitation code
                 $invitation_code = bin2hex(random_bytes(8));
                 // Generate RTMP and HLS URLs
-                $rtmp_url = 'rtmp://your-rtmp-server.com/live/' . $stream_key;
-                $hls_url = 'https://your-hls-server.com/live/' . $stream_key . '/index.m3u8';
+                $rtmp_url = 'rtmp://www.bsdosale.com/live/' . $stream_key;
+                $hls_url = 'https://www.bsdosale.com/live/' . $stream_key . '/index.m3u8';
                 
                 try {
                     $stmt = $pdo->prepare("
@@ -454,7 +454,7 @@ $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <div class="col-md-9">
                                     <div class="mb-2">
                                         <label class="form-label">RTMP Server URL:</label>
-                                        <input type="text" class="form-control bg-dark text-white" id="rtmpServerUrl" value="<?php echo htmlspecialchars(str_replace('/' . $current_stream['stream_key'], '', $current_stream['rtmp_url'])); ?>" readonly>
+                                        <input type="text" class="form-control bg-dark text-white" id="rtmpServerUrl" value="<?php echo htmlspecialchars($current_stream['rtmp_url'] ? str_replace('/' . $current_stream['stream_key'], '', $current_stream['rtmp_url']) : 'rtmp://www.bsdosale.com/live'); ?>" readonly>
                                     </div>
                                     <div>
                                         <label class="form-label">Stream Key:</label>

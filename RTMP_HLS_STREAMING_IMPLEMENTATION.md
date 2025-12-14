@@ -82,7 +82,8 @@ This document describes the implementation of RTMP/HLS video streaming functiona
 ### New Files:
 1. `rtmp_server.php` - RTMP/HLS stream management API
 2. `update_database_rtmp_invitation.php` - Database schema update script
-3. `RTMP_HLS_STREAMING_IMPLEMENTATION.md` - This document
+3. `populate_rtmp_hls_urls.php` - Script to populate RTMP/HLS URLs for existing streams
+4. `RTMP_HLS_STREAMING_IMPLEMENTATION.md` - This document
 
 ### Removed Files:
 1. `public/js/webrtc-client.js` - WebRTC client JavaScript
@@ -91,5 +92,6 @@ This document describes the implementation of RTMP/HLS video streaming functiona
 1. Configure RTMP server endpoint in the application
 2. Configure HLS server endpoint in the application
 3. Run `update_database_rtmp_invitation.php` to update your database schema
-4. Test streaming with OBS or similar software
-5. Verify viewer experience across different browsers
+4. Run `populate_rtmp_hls_urls.php` to populate RTMP/HLS URLs for existing streams
+5. Test streaming with OBS or similar software
+6. Verify viewer experience across different browsers
