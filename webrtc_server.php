@@ -1,19 +1,15 @@
 <?php
-// WebRTC to RTMP migration notice
-// This WebRTC server has been deprecated and replaced with RTMP streaming
-// Please use rtmp_server.php for streaming functionality
+session_start();
+require_once 'config.php';
+
+// Check authentication
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    exit;
+}
 
 header('Content-Type: application/json');
-
-// Return deprecation message
-http_response_code(410); // Gone
-echo json_encode([
-    'success' => false,
-    'error' => 'WebRTC streaming has been deprecated',
-    'message' => 'This WebRTC server has been replaced with RTMP streaming. Please use rtmp_server.php for streaming functionality.'
-]);
-exit;
-
 
 $user_id = $_SESSION['user_id'];
 $action = $_POST['action'] ?? $_GET['action'] ?? '';

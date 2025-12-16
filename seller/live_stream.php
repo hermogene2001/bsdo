@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $description = trim($_POST['description']);
                 $category_id = intval($_POST['category_id']);
                 $scheduled_at = !empty($_POST['scheduled_at']) ? $_POST['scheduled_at'] : null;
+                $streaming_method = $_POST['streaming_method'] ?? 'rtmp'; // Default to RTMP if not specified
                 
                 // Generate unique stream key
                 $stream_key = 'stream_' . $seller_id . '_' . time() . '_' . bin2hex(random_bytes(8));
@@ -38,10 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 try {
                     $stmt = $pdo->prepare("
-                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, invitation_enabled, invitation_expiry, status, scheduled_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, true, NULL, 'scheduled', ?)
+                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, invitation_enabled, invitation_expiry, status, scheduled_at, streaming_method) 
+                        VALUES (?, ?, ?, ?, ?, ?, true, NULL, 'scheduled', ?, ?)
                     ");
-                    $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key, $invitation_code, $scheduled_at]);
+                    $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key, $invitation_code, $scheduled_at, $streaming_method]);
                     $stream_id = $pdo->lastInsertId();
                     
                     // If no scheduled time, start immediately
@@ -55,7 +56,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     
                     $success_message = $scheduled_at ? "Stream scheduled successfully!" : "Stream started successfully!";
-                    header("Location: live_stream.php?stream_id=" . $stream_id);
+                    
+                    // Get streaming method for redirect
+                    $stream_stmt = $pdo->prepare("SELECT streaming_method FROM live_streams WHERE id = ?");
+                    $stream_stmt->execute([$stream_id]);
+                    $stream_data = $stream_stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    // Redirect to appropriate streaming interface based on method
+                    if ($stream_data && $stream_data['streaming_method'] === 'webrtc') {
+                        header("Location: live_stream_browser.php?stream_id=" . $stream_id);
+                    } else {
+                        header("Location: live_stream.php?stream_id=" . $stream_id);
+                    }
                     exit();
                 } catch (Exception $e) {
                     $error_message = "Failed to start stream: " . $e->getMessage();
@@ -1086,7 +1098,16 @@ function getInvitationStatus($stream) {
                                             <input type="datetime-local" class="form-control" name="scheduled_at">
                                             <div class="form-text">Leave empty to start immediately</div>
                                         </div>
-                                        <div class="col-md-6 d-flex align-items-end">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Streaming Method</label>
+                                            <select class="form-control" name="streaming_method">
+                                                <option value="rtmp">RTMP (Use OBS or similar software)</option>
+                                                <option value="webrtc">WebRTC (Browser-based streaming)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-12 d-flex justify-content-end">
                                             <button type="submit" class="btn btn-live">
                                                 <i class="fas fa-video me-2"></i>Start Live Stream
                                             </button>
