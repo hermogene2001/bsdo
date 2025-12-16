@@ -15,7 +15,10 @@ CREATE TABLE IF NOT EXISTS `live_streams` (
   `invitation_expiry` datetime DEFAULT NULL,
   `rtmp_url` varchar(500) DEFAULT NULL,
   `hls_url` varchar(500) DEFAULT NULL,
+  `invite_code` varchar(128) DEFAULT NULL,
+  `invite_expires_at` datetime DEFAULT NULL,
   `is_live` tinyint(1) DEFAULT 0,
+  `connection_status` enum('connected','disconnected','reconnecting') DEFAULT 'connected',
   `viewer_count` int(11) DEFAULT 0,
   `max_viewers` int(11) DEFAULT 0,
   `started_at` datetime DEFAULT NULL,
@@ -23,6 +26,7 @@ CREATE TABLE IF NOT EXISTS `live_streams` (
   `scheduled_at` datetime DEFAULT NULL,
   `duration` int(11) DEFAULT 0 COMMENT 'Duration in seconds',
   `status` enum('scheduled','live','ended','cancelled') DEFAULT 'scheduled',
+  `streaming_method` enum('rtmp','webrtc') DEFAULT 'rtmp',
   `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -117,10 +121,7 @@ ALTER TABLE `live_stream_analytics`
   ADD CONSTRAINT `live_stream_analytics_stream_fk` FOREIGN KEY (`stream_id`) REFERENCES `live_streams` (`id`) ON DELETE CASCADE;
 
 -- Insert some sample data for testing
-INSERT INTO `live_streams` (`seller_id`, `title`, `description`, `category_id`, `stream_key`, `is_live`, `viewer_count`, `status`, `scheduled_at`) VALUES
-(1, 'Electronics Showcase', 'Live demonstration of latest electronics and gadgets', 1, 'stream_key_123', 0, 0, 'scheduled', NOW() + INTERVAL 1 HOUR),
-(2, 'Fashion Live Sale', 'Exclusive fashion items with live discounts', 2, 'stream_key_456', 1, 15, 'live', NOW()),
-(3, 'Home & Garden Tips', 'Live tips and product demonstrations for home improvement', 3, 'stream_key_789', 0, 0, 'scheduled', NOW() + INTERVAL 2 HOUR);
-
-
-
+INSERT INTO `live_streams` (`seller_id`, `title`, `description`, `category_id`, `stream_key`, `is_live`, `viewer_count`, `status`, `scheduled_at`, `streaming_method`) VALUES
+(1, 'Electronics Showcase', 'Live demonstration of latest electronics and gadgets', 1, 'stream_key_123', 0, 0, 'scheduled', NOW() + INTERVAL 1 HOUR, 'rtmp'),
+(2, 'Fashion Live Sale', 'Exclusive fashion items with live discounts', 2, 'stream_key_456', 1, 15, 'live', NOW(), 'rtmp'),
+(3, 'Home & Garden Tips', 'Live tips and product demonstrations for home improvement', 3, 'stream_key_789', 0, 0, 'scheduled', NOW() + INTERVAL 2 HOUR, 'webrtc');

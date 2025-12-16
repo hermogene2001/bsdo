@@ -32,7 +32,7 @@ try {
     
     if (!$stream) {
         echo "<p>Creating a test stream...</p>\n";
-        $stmt = $pdo->prepare("INSERT INTO live_streams (seller_id, title, description, stream_key, is_live, status) VALUES (?, ?, ?, ?, 1, 'live')");
+        $stmt = $pdo->prepare("INSERT INTO live_streams (seller_id, title, description, stream_key, is_live, status, streaming_method) VALUES (?, ?, ?, ?, 1, 'live', 'rtmp')");
         $stmt->execute([1, 'Test Stream for Invitation Links', 'Test stream to verify invitation link functionality', 'test_stream_key_' . time()]);
         $stream_id = $pdo->lastInsertId();
         echo "<p style='color: green;'>✓ Created test stream with ID: $stream_id</p>\n";

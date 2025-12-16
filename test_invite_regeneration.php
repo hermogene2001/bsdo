@@ -38,10 +38,10 @@ try {
         
         // Create a test stream with an expired link
         echo "<p>Creating test stream with expired link...</p>\n";
-        $stmt = $pdo->prepare("INSERT INTO live_streams (seller_id, title, description, stream_key, is_live, status, invite_code, invite_expires_at) VALUES (?, ?, ?, ?, 1, 'live', ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO live_streams (seller_id, title, description, stream_key, is_live, status, invite_code, invite_expires_at, streaming_method) VALUES (?, ?, ?, ?, 1, 'live', ?, ?, 'rtmp')");
         $expired_code = bin2hex(random_bytes(10));
         $expired_time = date('Y-m-d H:i:s', strtotime('-1 hour')); // Expired 1 hour ago
-        $stmt->execute([1, 'Test Stream', 'Test for expired links', 'test_key_' . time(), $expired_code, $expired_time]);
+        $stmt->execute([1, 'Test Stream for Regeneration', 'Test stream to verify invitation regeneration functionality', 'test_stream_key_' . time(), $expired_code, $expired_time]);
         $test_stream_id = $pdo->lastInsertId();
         
         echo "<p>Created test stream ID: $test_stream_id</p>\n";

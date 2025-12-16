@@ -28,8 +28,8 @@ try {
         // Create a test stream
         $stream_key = 'test_stream_' . time();
         $stmt = $pdo->prepare("
-            INSERT INTO live_streams (seller_id, title, description, stream_key, is_live, status, started_at) 
-            VALUES (?, 'Test Stream', 'Test stream for messaging functionality', ?, 1, 'live', NOW())
+            INSERT INTO live_streams (seller_id, title, description, stream_key, is_live, status, started_at, streaming_method) 
+            VALUES (?, 'Test Stream', 'Test stream for messaging functionality', ?, 1, 'live', NOW(), 'rtmp')
         ");
         
         // Use the current user as seller if they're a seller, otherwise use user_id 1

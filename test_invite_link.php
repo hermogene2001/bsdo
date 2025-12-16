@@ -39,7 +39,7 @@ try {
         echo "No live streams found. Creating a test stream...\n";
         
         // Create a test stream
-        $stmt = $pdo->prepare("INSERT INTO live_streams (seller_id, title, description, stream_key, is_live, status) VALUES (?, ?, ?, ?, 1, 'live')");
+        $stmt = $pdo->prepare("INSERT INTO live_streams (seller_id, title, description, stream_key, is_live, status, streaming_method) VALUES (?, ?, ?, ?, 1, 'live', 'rtmp')");
         $stmt->execute([1, 'Test Stream', 'Test stream for invitation link functionality', 'test_stream_key_' . time(), 1]);
         $stream_id = $pdo->lastInsertId();
         

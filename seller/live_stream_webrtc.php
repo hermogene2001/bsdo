@@ -29,8 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 try {
                     $stmt = $pdo->prepare("
-                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, rtmp_url, hls_url, is_live, status, started_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'live', NOW())
+                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, rtmp_url, hls_url, is_live, streaming_method, status, started_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'webrtc', 'live', NOW())
                     ");
                     $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key, $invitation_code, $rtmp_url, $hls_url]);
                     $stream_id = $pdo->lastInsertId();
