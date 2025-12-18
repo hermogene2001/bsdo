@@ -538,6 +538,16 @@ function formatDate($date) {
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="withdrawal_request.php">
+                                <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="withdrawal_request.php">
+                                <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link active" href="settings.php">
                                 <i class="fas fa-cog me-2"></i>Settings
                             </a>
