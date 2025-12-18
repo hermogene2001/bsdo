@@ -607,6 +607,9 @@ $payment_methods = [
                 <li>
                     <a href="payment_channels.php"><i class="fas fa-money-bill-wave"></i> Payment Channels</a>
                 </li>
+                <li>
+                    <a href="withdrawal_requests.php"><i class="fas fa-money-bill-transfer"></i> Withdrawal Requests</a>
+                </li>
                 <li class="active">
                     <a href="settings.php"><i class="fas fa-cog"></i> Settings</a>
                 </li>

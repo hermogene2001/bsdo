@@ -294,6 +294,9 @@ logAdminActivity("Accessed categories management page");
                     <a href="payment_channels.php"><i class="fas fa-money-bill-wave"></i> Payment Channels</a>
                 </li>
                 <li>
+                    <a href="withdrawal_requests.php"><i class="fas fa-money-bill-transfer"></i> Withdrawal Requests</a>
+                </li>
+                <li>
                     <a href="settings.php"><i class="fas fa-cog"></i> Settings</a>
                 </li>
                 <li>
