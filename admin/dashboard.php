@@ -123,28 +123,25 @@ function time_elapsed_string($datetime, $full = false) {
     $ago = new DateTime($datetime);
     $diff = $now->diff($ago);
 
-    $diff->w = floor($diff->d / 7);
-    $diff->d -= $diff->w * 7;
+    // Calculate weeks manually without creating dynamic properties
+    $weeks = floor($diff->d / 7);
+    $days = $diff->d % 7;
 
-    $string = array(
-        'y' => 'year',
-        'm' => 'month',
-        'w' => 'week',
-        'd' => 'day',
-        'h' => 'hour',
-        'i' => 'minute',
-        's' => 'second',
-    );
-    foreach ($string as $k => &$v) {
-        if ($diff->$k) {
-            $v = $diff->$k . ' ' . $v . ($diff->$k > 1 ? 's' : '');
-        } else {
-            unset($string[$k]);
-        }
+    $string = array();
+    
+    if ($diff->y) $string['y'] = $diff->y . ' year' . ($diff->y > 1 ? 's' : '');
+    if ($diff->m) $string['m'] = $diff->m . ' month' . ($diff->m > 1 ? 's' : '');
+    if ($weeks) $string['w'] = $weeks . ' week' . ($weeks > 1 ? 's' : '');
+    if ($days) $string['d'] = $days . ' day' . ($days > 1 ? 's' : '');
+    if ($diff->h) $string['h'] = $diff->h . ' hour' . ($diff->h > 1 ? 's' : '');
+    if ($diff->i) $string['i'] = $diff->i . ' minute' . ($diff->i > 1 ? 's' : '');
+    if ($diff->s) $string['s'] = $diff->s . ' second' . ($diff->s > 1 ? 's' : '');
+
+    if (!$full && count($string) > 0) {
+        $string = array_slice($string, 0, 1);
     }
-
-    if (!$full) $string = array_slice($string, 0, 1);
-    return $string ? implode(', ', $string) . ' ago' : 'just now';
+    
+    return count($string) > 0 ? implode(', ', $string) . ' ago' : 'just now';
 }
 
 // Function to log admin activity

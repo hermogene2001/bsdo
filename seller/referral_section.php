@@ -5,7 +5,7 @@
     <h4 class="section-title"><i class="fas fa-gift me-2"></i>Invite & Earn</h4>
     <div class="alert alert-success">
         <i class="fas fa-star me-2"></i>
-        <strong>Referral Rewards:</strong> Earn $0.20 for every seller you invite and $0.50 for every client!
+        <strong>Referral Rewards:</strong> Earn $0.20 for every user you invite (seller or client)!
     </div>
     
     <div class="row mb-4">
@@ -56,10 +56,9 @@
     <div class="alert alert-info">
         <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>How It Works</h6>
         <ul class="mb-0">
-            <li><strong>Invite Sellers:</strong> When a seller registers using your code, you earn $0.20</li>
-            <li><strong>Invite Clients:</strong> When a client registers using your code, they get $0.50 welcome bonus</li>
+            <li><strong>Invite Anyone:</strong> When any user (seller or client) registers using your code, you earn $0.20</li>
             <li>Rewards are automatically added to your wallet</li>
-            <li>Use your wallet balance for future purchases or withdraw</li>
+            <li>Use your wallet balance for future purchases or withdraw when you reach $5.00</li>
         </ul>
     </div>
 </div>

@@ -76,13 +76,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $reward_inviter = 0.00;
                     $reward_invitee = 0.00;
 
-                    if ($role === 'seller') {
-                        // Seller invited a seller -> $0.20 immediate reward
-                        $reward_inviter = 0.20;
-                    } elseif ($role === 'client') {
-                        // Seller invited a client -> $0.50 to client (invitee)
-                        $reward_invitee = 0.50;
-                    }
+                    // Regardless of role, inviter always gets $0.20
+                    $reward_inviter = 0.20;
+                    // Invitee gets no reward
+                    $reward_invitee = 0.00;
 
                     if ($reward_inviter > 0) {
                         $pdo->prepare("INSERT INTO user_wallets (user_id, balance) VALUES (?, ?) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)")
