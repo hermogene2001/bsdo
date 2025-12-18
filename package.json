@@ -1,0 +1,17 @@
+{
+  "name": "bsdo-streaming-server",
+  "version": "1.0.0",
+  "description": "Simple RTMP/HLS streaming server for BSDO development",
+  "main": "streaming-server.js",
+  "scripts": {
+    "start": "node streaming-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-media-server": "^2.6.2",
+    "cors": "^2.8.5"
+  },
+  "keywords": ["rtmp", "hls", "streaming", "live"],
+  "author": "BSDO",
+  "license": "MIT"
+}

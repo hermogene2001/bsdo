@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Test Page - BSDO</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        video {
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 BSDO WebRTC Test Page</h1>
+
+    <div class="test-section">
+        <h2>1. Camera & Microphone Test</h2>
+        <div id="mediaStatus" class="status info">Click "Test Media" to check camera and microphone access.</div>
+        <video id="testVideo" autoplay muted style="display: none;"></video>
+        <br>
+        <button onclick="testMediaAccess()">Test Media Access</button>
+        <button onclick="stopMediaTest()">Stop Test</button>
+    </div>
+
+    <div class="test-section">
+        <h2>2. WebRTC Support Test</h2>
+        <div id="webrtcStatus" class="status info">Checking WebRTC support...</div>
+        <button onclick="testWebRTCSupport()">Test WebRTC Support</button>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Network Connectivity Test</h2>
+        <div id="networkStatus" class="status info">Testing network connectivity for WebRTC...</div>
+        <button onclick="testNetworkConnectivity()">Test Network</button>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Signaling Server Test</h2>
+        <div id="signalingStatus" class="status info">Testing WebRTC signaling server...</div>
+        <button onclick="testSignalingServer()">Test Signaling Server</button>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Full Streaming Test</h2>
+        <div id="streamingStatus" class="status info">Ready to test full WebRTC streaming.</div>
+        <p><strong>Note:</strong> This test requires you to be logged in as a seller. Use the test accounts:</p>
+        <ul>
+            <li>Seller: <code>seller@test.com</code> / <code>test123</code></li>
+            <li>Buyer: <code>buyer@test.com</code> / <code>test123</code></li>
+        </ul>
+        <button onclick="openStreamingTest()">Open Streaming Interface</button>
+        <button onclick="openViewerTest()">Open Viewer Interface</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Test Results Summary</h2>
+        <div id="testSummary" class="status info">
+            Run the tests above to check your WebRTC streaming setup.
+        </div>
+    </div>
+
+    <script>
+        let testResults = {
+            media: false,
+            webrtc: false,
+            network: false,
+            signaling: false
+        };
+
+        let mediaStream = null;
+
+        // Test 1: Media Access
+        async function testMediaAccess() {
+            const statusDiv = document.getElementById('mediaStatus');
+            const video = document.getElementById('testVideo');
+
+            try {
+                statusDiv.className = 'status info';
+                statusDiv.textContent = 'Requesting camera and microphone access...';
+
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+
+                video.style.display = 'block';
+                video.srcObject = mediaStream;
+
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✓ Camera and microphone access granted! Video should be visible above.';
+                testResults.media = true;
+                updateSummary();
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '✗ Media access failed: ' + error.message;
+                testResults.media = false;
+                updateSummary();
+            }
+        }
+
+        function stopMediaTest() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            document.getElementById('testVideo').style.display = 'none';
+            document.getElementById('mediaStatus').className = 'status info';
+            document.getElementById('mediaStatus').textContent = 'Media test stopped.';
+        }
+
+        // Test 2: WebRTC Support
+        function testWebRTCSupport() {
+            const statusDiv = document.getElementById('webrtcStatus');
+
+            if (typeof RTCPeerConnection !== 'undefined') {
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✓ WebRTC is supported in this browser!';
+                testResults.webrtc = true;
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '✗ WebRTC is not supported in this browser.';
+                testResults.webrtc = false;
+            }
+            updateSummary();
+        }
+
+        // Test 3: Network Connectivity
+        async function testNetworkConnectivity() {
+            const statusDiv = document.getElementById('networkStatus');
+
+            try {
+                statusDiv.className = 'status info';
+                statusDiv.textContent = 'Testing STUN server connectivity...';
+
+                const pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                });
+
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        statusDiv.className = 'status success';
+                        statusDiv.textContent = '✓ Network connectivity test passed! ICE candidates received.';
+                        testResults.network = true;
+                        updateSummary();
+                        pc.close();
+                    }
+                };
+
+                pc.createDataChannel('test');
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    if (!testResults.network) {
+                        statusDiv.className = 'status error';
+                        statusDiv.textContent = '⚠️ Network test timed out. This may affect WebRTC connections.';
+                        testResults.network = false;
+                        updateSummary();
+                        pc.close();
+                    }
+                }, 5000);
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '✗ Network connectivity test failed: ' + error.message;
+                testResults.network = false;
+                updateSummary();
+            }
+        }
+
+        // Test 4: Signaling Server
+        async function testSignalingServer() {
+            const statusDiv = document.getElementById('signalingStatus');
+
+            try {
+                statusDiv.className = 'status info';
+                statusDiv.textContent = 'Testing signaling server connectivity...';
+
+                // Test basic connectivity (this will fail auth, but we can check if server responds)
+                const response = await fetch('webrtc_server.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'action=test'
+                });
+
+                if (response.status === 401) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✓ Signaling server is responding (authentication required, which is correct)';
+                    testResults.signaling = true;
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '⚠️ Unexpected response from signaling server: ' + response.status;
+                    testResults.signaling = false;
+                }
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '✗ Cannot connect to signaling server: ' + error.message;
+                testResults.signaling = false;
+            }
+            updateSummary();
+        }
+
+        // Test 5: Open interfaces
+        function openStreamingTest() {
+            window.open('seller/live_stream.php', '_blank');
+        }
+
+        function openViewerTest() {
+            window.open('live.php', '_blank');
+        }
+
+        // Update summary
+        function updateSummary() {
+            const summaryDiv = document.getElementById('testSummary');
+            let passed = 0;
+            let total = 4;
+
+            Object.values(testResults).forEach(result => {
+                if (result) passed++;
+            });
+
+            let statusClass = 'info';
+            let message = `Tests completed: ${passed}/${total} passed.`;
+
+            if (passed === total) {
+                statusClass = 'success';
+                message += ' 🎉 All tests passed! WebRTC should work.';
+            } else if (passed >= 2) {
+                statusClass = 'info';
+                message += ' ⚠️ Most tests passed. WebRTC may work with some limitations.';
+            } else {
+                statusClass = 'error';
+                message += ' ❌ Multiple tests failed. Check browser settings and network.';
+            }
+
+            summaryDiv.className = `status ${statusClass}`;
+            summaryDiv.textContent = message;
+        }
+
+        // Auto-run WebRTC support test
+        document.addEventListener('DOMContentLoaded', function() {
+            testWebRTCSupport();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>
