@@ -8,6 +8,11 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
     exit();
 }
 
+// DEBUG: Check if form is being submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log("Form submitted with action: " . ($_POST['action'] ?? 'no action'));
+}
+
 // Initialize messages
 $success_message = '';
 $error_message = '';
@@ -566,6 +571,16 @@ $payment_methods = [
             padding: 20px;
             margin-bottom: 20px;
         }
+        
+        .link-item {
+            position: relative;
+        }
+        
+        .remove-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -1068,13 +1083,16 @@ $payment_methods = [
                                 <div class="card-body">
                                     <p class="text-muted">Manage customer support links that will be displayed to both sellers and clients.</p>
                                     
-                                    <form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+                                    <form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" id="support-links-form">
                                         <input type="hidden" name="action" value="update_support_links">
                                         
                                         <div id="support-links-container">
                                             <?php foreach ($support_links as $index => $link): ?>
-                                            <div class="card mb-3 support-link-item">
+                                            <div class="card mb-3 support-link-item link-item">
                                                 <div class="card-body">
+                                                    <button type="button" class="btn btn-danger btn-sm remove-btn remove-support-link">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
                                                     <div class="row">
                                                         <div class="col-md-5">
                                                             <div class="mb-3">
@@ -1103,61 +1121,23 @@ $payment_methods = [
                                                                     <input class="form-check-input" type="checkbox" name="support_links[<?php echo $index; ?>][is_active]" <?php echo $link['is_active'] ? 'checked' : ''; ?>>
                                                                 </div>
                                                             </div>
-                                                            <div class="mb-3">
-                                                                <button type="button" class="btn btn-danger remove-link">Remove</button>
-                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
                                             <?php endforeach; ?>
-                                            
-                                            <!-- Template for new links -->
-                                            <div id="new-link-template" class="card mb-3 support-link-item d-none">
-                                                <div class="card-body">
-                                                    <div class="row">
-                                                        <div class="col-md-5">
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Link Name</label>
-                                                                <input type="text" class="form-control" name="support_links[new_0][name]" required>
-                                                            </div>
-                                                            <div class="mb-3">
-                                                                <label class="form-label">URL</label>
-                                                                <input type="text" class="form-control" name="support_links[new_0][url]" required>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-5">
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Description</label>
-                                                                <textarea class="form-control" name="support_links[new_0][description]" rows="2"></textarea>
-                                                            </div>
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Icon Class (Font Awesome)</label>
-                                                                <input type="text" class="form-control" name="support_links[new_0][icon]" placeholder="e.g., fa-comments">
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-2">
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Active</label><br>
-                                                                <div class="form-check form-switch">
-                                                                    <input class="form-check-input" type="checkbox" name="support_links[new_0][is_active]" checked>
-                                                                </div>
-                                                            </div>
-                                                            <div class="mb-3">
-                                                                <button type="button" class="btn btn-danger remove-link">Remove</button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
                                         </div>
                                         
                                         <div class="mb-3">
-                                            <button type="button" id="add-support-link" class="btn btn-secondary">Add New Link</button>
+                                            <button type="button" id="add-support-link" class="btn btn-secondary">
+                                                <i class="fas fa-plus me-2"></i>Add New Link
+                                            </button>
                                         </div>
                                         
                                         <div class="mb-3">
-                                            <button type="submit" class="btn btn-primary">Save Support Links</button>
+                                            <button type="submit" class="btn btn-primary" id="save-support-links-btn">
+                                                <i class="fas fa-save me-2"></i>Save Support Links
+                                            </button>
                                         </div>
                                     </form>
                                 </div>
@@ -1173,13 +1153,16 @@ $payment_methods = [
                                 <div class="card-body">
                                     <p class="text-muted">Manage social media links that will be displayed to both sellers and clients.</p>
                                     
-                                    <form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+                                    <form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" id="social-links-form">
                                         <input type="hidden" name="action" value="update_social_links">
                                         
                                         <div id="social-links-container">
                                             <?php foreach ($social_links as $index => $link): ?>
-                                            <div class="card mb-3 social-link-item">
+                                            <div class="card mb-3 social-link-item link-item">
                                                 <div class="card-body">
+                                                    <button type="button" class="btn btn-danger btn-sm remove-btn remove-social-link">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
                                                     <div class="row">
                                                         <div class="col-md-4">
                                                             <div class="mb-3">
@@ -1209,64 +1192,22 @@ $payment_methods = [
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div class="col-md-6 text-end">
-                                                            <div class="mb-3">
-                                                                <button type="button" class="btn btn-danger remove-social-link">Remove</button>
-                                                            </div>
-                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                             <?php endforeach; ?>
-                                            
-                                            <!-- Template for new links -->
-                                            <div id="new-social-link-template" class="card mb-3 social-link-item d-none">
-                                                <div class="card-body">
-                                                    <div class="row">
-                                                        <div class="col-md-4">
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Platform Name</label>
-                                                                <input type="text" class="form-control" name="social_links[new_0][name]" required>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-5">
-                                                            <div class="mb-3">
-                                                                <label class="form-label">URL</label>
-                                                                <input type="text" class="form-control" name="social_links[new_0][url]" required>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-3">
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Icon Class (Font Awesome)</label>
-                                                                <input type="text" class="form-control" name="social_links[new_0][icon]" placeholder="e.g., fab fa-facebook-f">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <div class="mb-3">
-                                                                <label class="form-label">Active</label><br>
-                                                                <div class="form-check form-switch">
-                                                                    <input class="form-check-input" type="checkbox" name="social_links[new_0][is_active]" checked>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-6 text-end">
-                                                            <div class="mb-3">
-                                                                <button type="button" class="btn btn-danger remove-social-link">Remove</button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
                                         </div>
                                         
                                         <div class="mb-3">
-                                            <button type="button" id="add-social-link" class="btn btn-secondary">Add New Social Link</button>
+                                            <button type="button" id="add-social-link" class="btn btn-secondary">
+                                                <i class="fas fa-plus me-2"></i>Add New Social Link
+                                            </button>
                                         </div>
                                         
                                         <div class="mb-3">
-                                            <button type="submit" class="btn btn-primary">Save Social Links</button>
+                                            <button type="submit" class="btn btn-primary" id="save-social-links-btn">
+                                                <i class="fas fa-save me-2"></i>Save Social Links
+                                            </button>
                                         </div>
                                     </form>
                                 </div>
@@ -1357,6 +1298,7 @@ $payment_methods = [
                 </div>
             </div>
         </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -1415,67 +1357,139 @@ $payment_methods = [
             });
             
             // Support links functionality
-            let linkCounter = <?php echo count($support_links); ?>;
+            let supportLinkCounter = <?php echo count($support_links); ?>;
             
             document.getElementById('add-support-link').addEventListener('click', function() {
-                const template = document.getElementById('new-link-template');
-                const clone = template.cloneNode(true);
-                clone.classList.remove('d-none');
+                const container = document.getElementById('support-links-container');
                 
-                // Update names to use unique indices
-                const inputs = clone.querySelectorAll('input, textarea');
-                inputs.forEach(input => {
-                    if (input.name) {
-                        input.name = input.name.replace('new_0', 'new_' + linkCounter);
-                    }
-                });
+                // Create new link item
+                const newItem = document.createElement('div');
+                newItem.className = 'card mb-3 support-link-item link-item';
+                newItem.innerHTML = `
+                    <div class="card-body">
+                        <button type="button" class="btn btn-danger btn-sm remove-btn remove-support-link">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <div class="row">
+                            <div class="col-md-5">
+                                <div class="mb-3">
+                                    <label class="form-label">Link Name</label>
+                                    <input type="text" class="form-control" name="support_links[${supportLinkCounter}][name]" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">URL</label>
+                                    <input type="text" class="form-control" name="support_links[${supportLinkCounter}][url]" required>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="mb-3">
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-control" name="support_links[${supportLinkCounter}][description]" rows="2"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Icon Class (Font Awesome)</label>
+                                    <input type="text" class="form-control" name="support_links[${supportLinkCounter}][icon]" placeholder="e.g., fa-comments">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Active</label><br>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="support_links[${supportLinkCounter}][is_active]" checked>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 
-                // Remove the template ID
-                clone.removeAttribute('id');
-                
-                // Insert before the template
-                template.parentNode.insertBefore(clone, template);
-                
-                linkCounter++;
-            });
-            
-            // Handle remove buttons for support links
-            document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('remove-link')) {
-                    e.target.closest('.support-link-item').remove();
-                }
+                container.appendChild(newItem);
+                supportLinkCounter++;
             });
             
             // Social links functionality
             let socialLinkCounter = <?php echo count($social_links); ?>;
             
             document.getElementById('add-social-link').addEventListener('click', function() {
-                const template = document.getElementById('new-social-link-template');
-                const clone = template.cloneNode(true);
-                clone.classList.remove('d-none');
+                const container = document.getElementById('social-links-container');
                 
-                // Update names to use unique indices
-                const inputs = clone.querySelectorAll('input, textarea');
-                inputs.forEach(input => {
-                    if (input.name) {
-                        input.name = input.name.replace('new_0', 'new_' + socialLinkCounter);
-                    }
-                });
+                // Create new social link item
+                const newItem = document.createElement('div');
+                newItem.className = 'card mb-3 social-link-item link-item';
+                newItem.innerHTML = `
+                    <div class="card-body">
+                        <button type="button" class="btn btn-danger btn-sm remove-btn remove-social-link">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Platform Name</label>
+                                    <input type="text" class="form-control" name="social_links[${socialLinkCounter}][name]" required>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="mb-3">
+                                    <label class="form-label">URL</label>
+                                    <input type="text" class="form-control" name="social_links[${socialLinkCounter}][url]" required>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Icon Class (Font Awesome)</label>
+                                    <input type="text" class="form-control" name="social_links[${socialLinkCounter}][icon]" placeholder="e.g., fab fa-facebook-f">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Active</label><br>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="social_links[${socialLinkCounter}][is_active]" checked>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 
-                // Remove the template ID
-                clone.removeAttribute('id');
-                
-                // Insert before the template
-                template.parentNode.insertBefore(clone, template);
-                
+                container.appendChild(newItem);
                 socialLinkCounter++;
             });
             
-            // Handle remove buttons for social links
+            // Handle remove buttons for support links
             document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('remove-social-link')) {
-                    e.target.closest('.social-link-item').remove();
+                if (e.target.classList.contains('remove-support-link') || 
+                    e.target.closest('.remove-support-link')) {
+                    e.preventDefault();
+                    const button = e.target.classList.contains('remove-support-link') ? e.target : e.target.closest('.remove-support-link');
+                    button.closest('.support-link-item').remove();
                 }
+                
+                if (e.target.classList.contains('remove-social-link') || 
+                    e.target.closest('.remove-social-link')) {
+                    e.preventDefault();
+                    const button = e.target.classList.contains('remove-social-link') ? e.target : e.target.closest('.remove-social-link');
+                    button.closest('.social-link-item').remove();
+                }
+            });
+            
+            // Handle form submissions for support and social links
+            document.getElementById('save-support-links-btn').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('support-links-form').submit();
+            });
+            
+            document.getElementById('save-social-links-btn').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('social-links-form').submit();
+            });
+            
+            // Debug form submissions (removed alert that was blocking form submission)
+            document.addEventListener('submit', function(e) {
+                console.log('Form submission detected for:', e.target.id || e.target.name);
+                // Allow form to submit normally
             });
         });
     </script>

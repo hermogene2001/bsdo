@@ -435,7 +435,7 @@ $categories_stmt->execute();
 $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get payment channels for the form
-$channels_stmt = $pdo->prepare("SELECT id, name, is_default FROM payment_channels WHERE is_active = 1 ORDER BY name");
+$channels_stmt = $pdo->prepare("SELECT id, name FROM payment_channels WHERE is_active = 1 ORDER BY name");
 $channels_stmt->execute();
 $payment_channels = $channels_stmt->fetchAll(PDO::FETCH_ASSOC);
 
