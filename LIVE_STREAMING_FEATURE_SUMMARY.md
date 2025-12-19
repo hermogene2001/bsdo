@@ -7,9 +7,9 @@ This document summarizes the implementation of the live streaming feature that a
 
 ### 1. Seller Live Streaming Interface
 - Added "Go Live" option to the seller navigation menu in [products.php](file:///c%3A/xampp/htdocs/bsdo/seller/products.php)
-- Created two live streaming interfaces:
-  - [live_stream.php](file:///c%3A/xampp/htdocs/bsdo/seller/live_stream.php) - Basic live streaming interface
-  - [live_stream_webrtc.php](file:///c%3A/xampp/htdocs/bsdo/seller/live_stream_webrtc.php) - Advanced WebRTC-based streaming with camera support
+- Created live streaming interfaces:
+  - [live_stream.php](file:///c%3A/xampp/htdocs/bsdo/seller/live_stream.php) - Main live streaming management interface
+  - [live_stream_browser.php](file:///c%3A/xampp/htdocs/bsdo/seller/live_stream_browser.php) - WebRTC browser-based streaming interface
 
 ### 2. Product Showcase During Live Streams
 - Sellers can feature products from their catalog during live streams

@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $description = trim($_POST['description']);
                 $category_id = intval($_POST['category_id']);
                 $scheduled_at = !empty($_POST['scheduled_at']) ? $_POST['scheduled_at'] : null;
-                $streaming_method = $_POST['streaming_method'] ?? 'rtmp'; // Default to RTMP if not specified
+                $streaming_method = $_POST['streaming_method'] ?? 'webrtc'; // Default to WebRTC
                 
                 // Generate unique stream key
                 $stream_key = 'stream_' . $seller_id . '_' . time() . '_' . bin2hex(random_bytes(8));
@@ -747,13 +747,6 @@ function getInvitationStatus($stream) {
     </div>
 
     <div class="container-fluid">
-        <!-- WebRTC Info Notice -->
-        <div class="alert alert-info mx-4 mt-4">
-            <i class="fas fa-info-circle me-2"></i>
-            <strong>WebRTC Streaming Available:</strong> This interface supports actual video streaming. 
-            <a href="live_stream_webrtc.php?stream_id=<?php echo $stream_id; ?>" class="alert-link ms-2">Use WebRTC version</a>
-        </div>
-        
         <!-- Alerts -->
         <?php if (isset($success_message)): ?>
             <div class="alert alert-success alert-dismissible fade show mx-4" role="alert">
@@ -1101,7 +1094,6 @@ function getInvitationStatus($stream) {
                                         <div class="col-md-6 mb-3">
                                             <label class="form-label">Streaming Method</label>
                                             <select class="form-control" name="streaming_method">
-                                                <option value="rtmp">RTMP (Use OBS or similar software)</option>
                                                 <option value="webrtc">WebRTC (Browser-based streaming)</option>
                                             </select>
                                         </div>
@@ -1175,7 +1167,7 @@ function getInvitationStatus($stream) {
                                         </div>
                                         <div class="text-end">
                                             <?php if ($stream['is_live']): ?>
-                                                <a href="live_stream_webrtc.php?stream_id=<?php echo $stream['id']; ?>" class="btn btn-sm btn-danger">
+                                                <a href="live_stream_browser.php?stream_id=<?php echo $stream['id']; ?>" class="btn btn-sm btn-danger">
                                                     <i class="fas fa-play me-1"></i>View Live
                                                 </a>
                                             <?php else: ?>

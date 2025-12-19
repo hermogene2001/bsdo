@@ -1068,7 +1068,7 @@ $payment_methods = [
                                 <div class="card-body">
                                     <p class="text-muted">Manage customer support links that will be displayed to both sellers and clients.</p>
                                     
-                                    <form method="POST" action="">
+                                    <form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
                                         <input type="hidden" name="action" value="update_support_links">
                                         
                                         <div id="support-links-container">
@@ -1173,7 +1173,7 @@ $payment_methods = [
                                 <div class="card-body">
                                     <p class="text-muted">Manage social media links that will be displayed to both sellers and clients.</p>
                                     
-                                    <form method="POST" action="">
+                                    <form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
                                         <input type="hidden" name="action" value="update_social_links">
                                         
                                         <div id="social-links-container">
@@ -1455,7 +1455,7 @@ $payment_methods = [
                 clone.classList.remove('d-none');
                 
                 // Update names to use unique indices
-                const inputs = clone.querySelectorAll('input');
+                const inputs = clone.querySelectorAll('input, textarea');
                 inputs.forEach(input => {
                     if (input.name) {
                         input.name = input.name.replace('new_0', 'new_' + socialLinkCounter);

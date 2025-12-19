@@ -19,20 +19,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $description = trim($_POST['description']);
                 $category_id = intval($_POST['category_id']);
                 
+                // Set category_id to NULL if not selected (0)
+                if ($category_id == 0) {
+                    $category_id = null;
+                }
+                
                 // Generate unique stream key
                 $stream_key = 'stream_' . $seller_id . '_' . time() . '_' . bin2hex(random_bytes(8));
                 // Generate invitation code
                 $invitation_code = bin2hex(random_bytes(8));
-                // Generate RTMP and HLS URLs (for compatibility)
-                $rtmp_url = 'rtmp://www.bsdosale.com/live/' . $stream_key;
-                $hls_url = 'https://www.bsdosale.com/live/' . $stream_key . '/index.m3u8';
                 
                 try {
                     $stmt = $pdo->prepare("
-                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, rtmp_url, hls_url, is_live, streaming_method, status, started_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'webrtc', 'live', NOW())
+                        INSERT INTO live_streams (seller_id, title, description, category_id, stream_key, invitation_code, is_live, streaming_method, status, started_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, 1, 'webrtc', 'live', NOW())
                     ");
-                    $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key, $invitation_code, $rtmp_url, $hls_url]);
+                    $stmt->execute([$seller_id, $title, $description, $category_id, $stream_key, $invitation_code]);
                     $stream_id = $pdo->lastInsertId();
                     
                     header("Location: live_stream_browser.php?stream_id=" . $stream_id);

@@ -1,12 +1,11 @@
 # WebRTC Browser-Based Streaming Implementation
 
 ## Overview
-This implementation adds browser-based WebRTC streaming capability to the existing RTMP/HLS streaming system, allowing sellers to stream directly from their browsers without requiring external software like OBS.
+This implementation provides browser-based WebRTC streaming capability, allowing sellers to stream directly from their browsers without requiring external software like OBS.
 
 ## Features Implemented
 
-### 1. Dual Streaming Method Support
-- **RTMP/HLS Streaming**: Traditional method using external software (OBS)
+### 1. WebRTC Streaming
 - **WebRTC Streaming**: Browser-based streaming directly from seller's webcam/microphone
 
 ### 2. Database Schema Updates
@@ -28,9 +27,8 @@ This implementation adds browser-based WebRTC streaming capability to the existi
 - Viewer count tracking
 - Connection status indicators
 
-### 5. RTMP Streaming Interface (`live_stream_webrtc.php`)
-- RTMP server URL and stream key display
-- Copy functionality for easy OBS setup
+### 5. WebRTC Streaming Interface (`live_stream_browser.php`)
+- Browser-based camera and microphone access
 - Real-time client messaging system
 - Product featuring during streams
 
@@ -48,7 +46,6 @@ This implementation adds browser-based WebRTC streaming capability to the existi
 seller/
 ├── live_stream.php              # Main stream management interface
 ├── live_stream_browser.php      # WebRTC browser streaming interface
-├── live_stream_webrtc.php       # RTMP streaming interface
 webrtc_server.php                # WebRTC signaling server
 update_database_streaming_method.php  # Database schema updater
 ```
@@ -56,7 +53,7 @@ update_database_streaming_method.php  # Database schema updater
 ### Database Changes
 ```sql
 -- Add streaming method column
-ALTER TABLE live_streams ADD COLUMN streaming_method ENUM('rtmp', 'webrtc') DEFAULT 'rtmp' AFTER status;
+ALTER TABLE live_streams ADD COLUMN streaming_method ENUM('webrtc') DEFAULT 'webrtc' AFTER status;
 
 -- Add connection status column
 ALTER TABLE live_streams ADD COLUMN connection_status VARCHAR(50) DEFAULT 'offline' AFTER streaming_method;
@@ -64,8 +61,8 @@ ALTER TABLE live_streams ADD COLUMN connection_status VARCHAR(50) DEFAULT 'offli
 
 ### Key Components
 
-#### 1. Streaming Method Selection
-Sellers can choose between:
+#### 1. WebRTC Streaming
+Sellers can stream directly from their browser:
 - **RTMP**: Requires external software like OBS
 - **WebRTC**: Browser-based streaming (no external software needed)
 
@@ -92,14 +89,6 @@ Sellers can choose between:
 4. Grant camera/microphone permissions when prompted
 5. Configure devices and settings
 6. Begin streaming directly from browser
-
-### For Sellers Using RTMP (External Software):
-1. Navigate to Live Stream section
-2. Select "RTMP (Use OBS or similar software)" as streaming method
-3. Click "Start Live Stream"
-4. Copy provided RTMP URL and Stream Key
-5. Configure OBS or other streaming software
-6. Begin streaming through external software
 
 ## Security Considerations
 - Authentication required for all streaming operations

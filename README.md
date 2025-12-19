@@ -71,7 +71,7 @@ Sellers can now go live to showcase their products and interact with clients in 
 ```
 ├── seller/
 │   ├── live_stream.php       # Main live streaming interface
-│   └── live_stream_webrtc.php # Advanced WebRTC streaming interface
+│   └── live_stream_browser.php # WebRTC browser-based streaming interface
 ├── live_streams.php          # Client view of all live streams
 ├── watch_stream.php          # Client interface for watching streams
 └── database_schema.sql       # Updated schema with live streaming tables

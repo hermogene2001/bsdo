@@ -111,12 +111,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $payment_channel_id
                     ]);
                     
+                    // Calculate average rental price for referral bonus and fee
+                    $avg_rental_price = ($rental_price_per_day + $rental_price_per_week + $rental_price_per_month) / 3;
+                    
                     // Check if this seller was referred by another seller and award 0.5% referral bonus
                     try {
                         $pdo->beginTransaction();
-                        
-                        // Calculate average rental price for referral bonus
-                        $avg_rental_price = ($rental_price_per_day + $rental_price_per_week + $rental_price_per_month) / 3;
                         
                         // Check if this seller was referred by another seller
                         $referral_stmt = $pdo->prepare("SELECT inviter_id FROM referrals WHERE invitee_id = ? AND invitee_role = 'seller' LIMIT 1");
@@ -143,6 +143,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         error_log("Referral bonus error: " . $e->getMessage());
                     }
+                    
+                    // Calculate 0.5% upload fee based on average rental price
+                    $upload_fee = $avg_rental_price * 0.005;
+                    
+                    // Update the product record with the fee information
+                    $product_id = $pdo->lastInsertId();
+                    $fee_stmt = $pdo->prepare("UPDATE products SET upload_fee = ?, upload_fee_paid = 0 WHERE id = ?");
+                    $fee_stmt->execute([$upload_fee, $product_id]);
                     
                     $success_message = "Rental product added successfully! Waiting for admin approval.";
                 } catch (Exception $e) {
