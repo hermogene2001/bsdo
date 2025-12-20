@@ -152,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $fee_stmt = $pdo->prepare("UPDATE products SET upload_fee = ?, upload_fee_paid = 0 WHERE id = ?");
                     $fee_stmt->execute([$upload_fee, $product_id]);
                     
-                    $success_message = "Rental product added successfully! Waiting for admin approval.";
+                    $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your average rental price. Check your payment slips section for payment instructions.";
                 } catch (Exception $e) {
                     $error_message = "Failed to add rental product: " . $e->getMessage();
                 }
@@ -607,6 +607,121 @@ function getRentalStatusBadge($status) {
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
+        }
+        
+        /* Enhanced Product Card Styling */
+        .product-card {
+            transition: all 0.3s ease;
+            border: 1px solid #e3e6f0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 0.15rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+        
+        .product-thumbnail {
+            height: 150px;
+            background: linear-gradient(135deg, #f8f9fc, #e9ecef);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--dark-color);
+        }
+        
+        .product-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .product-info {
+            padding: 1rem;
+        }
+        
+        .product-price {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        .product-stock {
+            font-size: 0.875rem;
+        }
+        
+        .status-badge {
+            padding: 0.25em 0.4em;
+            font-size: 75%;
+            font-weight: 700;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.35rem;
+        }
+        
+        .status-active {
+            background-color: #1cc88a;
+            color: #fff;
+        }
+        
+        .status-pending {
+            background-color: #f6c23e;
+            color: #fff;
+        }
+        
+        .status-inactive {
+            background-color: #e74a3b;
+            color: #fff;
+        }
+        
+        .action-buttons .btn {
+            margin-right: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* Modal Styles */
+        .modal-content {
+            border-radius: 0.5rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, var(--primary-color), #667eea);
+            color: white;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+        
+        /* Form Styles */
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), #667eea);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #3a5fd0, #556bd1);
+        }
+        
+        /* Rental-specific styles */
+        .rental-pricing-card {
+            background: linear-gradient(135deg, #36b9cc, #2c9faf);
+            color: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .rental-price {
+            font-size: 1.5rem;
+            font-weight: 700;
         }
     </style>
 
@@ -1425,5 +1540,116 @@ function getRentalStatusBadge($status) {
             this.form.submit();
         });
     </script>
+    
+    <!-- Rental Product Fee Calculator -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add event listeners to the add rental product form
+            const addRentalForm = document.querySelector('#addRentalProductModal form');
+            if (addRentalForm) {
+                const dayPriceInput = addRentalForm.querySelector('input[name="rental_price_per_day"]');
+                const weekPriceInput = addRentalForm.querySelector('input[name="rental_price_per_week"]');
+                const monthPriceInput = addRentalForm.querySelector('input[name="rental_price_per_month"]');
+                
+                const feeDisplay = document.createElement('div');
+                feeDisplay.className = 'alert alert-info mt-3';
+                feeDisplay.style.display = 'none';
+                
+                // Insert fee display after the month price input
+                if (monthPriceInput && monthPriceInput.parentNode) {
+                    monthPriceInput.parentNode.appendChild(feeDisplay);
+                }
+                
+                // Function to calculate average price and fee
+                function calculateFee() {
+                    const dayPrice = parseFloat(dayPriceInput?.value) || 0;
+                    const weekPrice = parseFloat(weekPriceInput?.value) || 0;
+                    const monthPrice = parseFloat(monthPriceInput?.value) || 0;
+                    
+                    // Calculate average price
+                    const avgPrice = (dayPrice + weekPrice + monthPrice) / 3;
+                    const fee = avgPrice * 0.005; // 0.5% fee
+                    const total = avgPrice + fee;
+                    
+                    if (avgPrice > 0) {
+                        feeDisplay.innerHTML = `
+                            <h6>Payment Verification Fee:</h6>
+                            <p>Average Rental Price: $${avgPrice.toFixed(2)}</p>
+                            <p>Verification Fee (0.5%): <strong>$${fee.toFixed(2)}</strong></p>
+                            <p class="mb-0">Total Amount Due: <strong>$${total.toFixed(2)}</strong></p>
+                            <small class="text-muted">You will need to pay this fee to your selected payment channel after submission.</small>
+                        `;
+                        feeDisplay.style.display = 'block';
+                    } else {
+                        feeDisplay.style.display = 'none';
+                    }
+                    
+                    return { avgPrice, fee, total };
+                }
+                
+                // Calculate fee when any price changes
+                dayPriceInput?.addEventListener('input', calculateFee);
+                weekPriceInput?.addEventListener('input', calculateFee);
+                monthPriceInput?.addEventListener('input', calculateFee);
+                
+                // Handle form submission
+                addRentalForm.addEventListener('submit', function(e) {
+                    const { avgPrice, fee, total } = calculateFee();
+                    if (avgPrice > 0) {
+                        // Show confirmation modal with fee details
+                        const modalAvgPrice = document.getElementById('rentalModalAvgPrice');
+                        const modalFeeAmount = document.getElementById('rentalModalFeeAmount');
+                        const modalTotalAmount = document.getElementById('rentalModalTotalAmount');
+                        
+                        if (modalAvgPrice) modalAvgPrice.textContent = avgPrice.toFixed(2);
+                        if (modalFeeAmount) modalFeeAmount.textContent = fee.toFixed(2);
+                        if (modalTotalAmount) modalTotalAmount.textContent = total.toFixed(2);
+                        
+                        // Prevent form submission and show modal first
+                        e.preventDefault();
+                        
+                        // Show the modal
+                        const modalElement = document.getElementById('rentalFeeInfoModal');
+                        if (modalElement) {
+                            const modal = new bootstrap.Modal(modalElement);
+                            modal.show();
+                            
+                            // Add event listener to the modal to submit form when closed
+                            modalElement.addEventListener('hidden.bs.modal', function() {
+                                addRentalForm.removeEventListener('submit', arguments.callee);
+                                addRentalForm.submit();
+                            }, {once: true});
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+    
+    <!-- Fee Information Modal -->
+    <div class="modal fade" id="rentalFeeInfoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Payment Verification Fee</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>You will be charged a verification fee of <strong>0.5%</strong> of your rental product's average price.</p>
+                    <div class="alert alert-info">
+                        <h6>Fee Calculation:</h6>
+                        <p>Average Rental Price: $<span id="rentalModalAvgPrice">0.00</span></p>
+                        <p>Verification Fee (0.5%): $<span id="rentalModalFeeAmount">0.00</span></p>
+                        <hr>
+                        <p class="mb-0"><strong>Total Amount Due: $<span id="rentalModalTotalAmount">0.00</span></strong></p>
+                    </div>
+                    <p>After submitting this rental product, you will need to make a payment of the verification fee to the selected payment channel.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

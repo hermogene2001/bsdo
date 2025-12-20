@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $fee_stmt = $pdo->prepare("UPDATE products SET upload_fee = ?, upload_fee_paid = 0 WHERE id = ?");
                     $fee_stmt->execute([$upload_fee, $product_id]);
                     
-                    $success_message = "Product added successfully! Please make payment for verification.";
+                    $success_message = "Product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your product price. Check your payment slips section for payment instructions.";
                     logSellerActivity("Added new product: $name");
                 } catch (Exception $e) {
                     $error_message = "Failed to add product: " . $e->getMessage();
@@ -403,10 +403,12 @@ $total_pages = ceil($total_products / $limit);
 $sql = "
     SELECT p.*, 
            c.name as category_name,
+           pc.name as payment_channel_name,
            COALESCE(SUM(oi.quantity), 0) as total_sold,
            COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
     FROM products p 
     LEFT JOIN categories c ON p.category_id = c.id
+    LEFT JOIN payment_channels pc ON p.payment_channel_id = pc.id
     LEFT JOIN order_items oi ON p.id = oi.product_id 
     LEFT JOIN orders o ON oi.order_id = o.id AND o.status = 'completed'
     $where_clause
@@ -515,6 +517,7 @@ function getSortIcon($column, $current_sort, $current_order) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Products Management - BSDO Seller</title>
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -529,6 +532,7 @@ function getSortIcon($column, $current_sort, $current_order) {
         body {
             font-family: 'Nunito', sans-serif;
             background-color: #f8f9fc;
+            min-height: 100vh;
         }
         
         .navbar {
@@ -539,6 +543,8 @@ function getSortIcon($column, $current_sort, $current_order) {
             background-color: var(--dark-color);
             color: white;
             min-height: calc(100vh - 56px);
+            position: sticky;
+            top: 56px;
         }
         
         .sidebar .nav-link {
@@ -567,55 +573,93 @@ function getSortIcon($column, $current_sort, $current_order) {
             border-radius: 5px;
         }
         
-        .table th {
-            cursor: pointer;
-            user-select: none;
-        }
-        
-        .table th:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .filter-badge {
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .filter-badge.active {
-            transform: scale(1.1);
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-        }
-        
-        .bulk-actions {
-            background: #f8f9fa;
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        
         .stats-card {
             border-left: 4px solid;
             transition: transform 0.2s;
+            border-radius: 0.5rem;
         }
         
         .stats-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
         }
         
         .stats-card.primary { border-left-color: var(--primary-color); }
         .stats-card.success { border-left-color: var(--secondary-color); }
         .stats-card.warning { border-left-color: var(--warning-color); }
         
-        .seller-avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .modal-header {
+            background: linear-gradient(135deg, var(--primary-color), #667eea);
             color: white;
-            font-weight: bold;
+        }
+        
+        .modal-header .btn-close {
+            filter: invert(1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), #667eea);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #3a5fd0, #556bd1);
+        }
+        
+        .btn-outline-primary:hover {
+            background: linear-gradient(135deg, var(--primary-color), #667eea);
+            border-color: var(--primary-color);
+        }
+        
+        .gallery-image-container {
+            position: relative;
+            margin-bottom: 10px;
+        }
+        
+        .gallery-image-container .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+        
+        .gallery-image-container:hover .remove-btn {
+            opacity: 1;
+        }
+        
+        .scroll-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        /* Table improvements */
+        .table th {
+            background-color: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .badge {
+            font-size: 0.75em;
+            padding: 0.35em 0.65em;
+        }
+        
+        .bg-success { background-color: var(--secondary-color) !important; }
+        .bg-warning { background-color: var(--warning-color) !important; }
+        .bg-secondary { background-color: #6c757d !important; }
+        
+        /* Card improvements */
+        .card {
+            border-radius: 0.5rem;
+            border: 1px solid #e3e6f0;
+            box-shadow: 0 0.15rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        
+        .card-header {
+            background-color: #f8f9fc;
+            border-bottom: 1px solid #e3e6f0;
         }
     </style>
 </head>
@@ -623,85 +667,31 @@ function getSortIcon($column, $current_sort, $current_order) {
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
-            <!-- Mobile menu button -->
-            <button class="btn btn-link text-white d-lg-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar">
-                <i class="fas fa-bars"></i>
-            </button>
-
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-store me-2"></i>
-                <strong>BSDO Seller</strong>
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-store me-2"></i>Seller Dashboard
             </a>
             
+            <!-- Mobile menu button -->
+            <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#mobileSidebar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- Seller info -->
             <div class="d-flex align-items-center">
-                <div class="dropdown">
-                    <a class="nav-link dropdown-toggle text-white d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
-                        <div class="seller-avatar me-2">
-                            <?php echo strtoupper(substr($seller_info['first_name'] ?? 'S', 0, 1)); ?>
-                        </div>
-                        <span><?php echo htmlspecialchars(($seller_info['first_name'] ?? '') . ' ' . ($seller_info['last_name'] ?? '')); ?></span>
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="dashboard.php"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
-                        <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i>Profile</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="../logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
-                    </ul>
+                <div class="seller-avatar me-2">
+                    <?php 
+                        $initials = strtoupper(substr($seller_info['first_name'], 0, 1) . substr($seller_info['last_name'], 0, 1));
+                        echo $initials ?: 'S';
+                    ?>
                 </div>
+                <span class="text-white"><?php echo htmlspecialchars($seller_info['first_name'] . ' ' . $seller_info['last_name']); ?></span>
             </div>
         </div>
     </nav>
 
-    <!-- Mobile Sidebar -->
-    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar">
-        <div class="offcanvas-header">
-            <h5 class="offcanvas-title">Menu</h5>
-            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
-        </div>
-        <div class="offcanvas-body">
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link" href="dashboard.php">
-                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link active" href="products.php">
-                        <i class="fas fa-box me-2"></i>Products
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="rental_products.php">
-                        <i class="fas fa-calendar-alt me-2"></i>Rental Products
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="orders.php">
-                        <i class="fas fa-shopping-cart me-2"></i>Orders
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="live_stream.php">
-                        <i class="fas fa-video me-2"></i>Live Stream
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="analytics.php">
-                        <i class="fas fa-chart-bar me-2"></i>Analytics
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="settings.php">
-                        <i class="fas fa-cog me-2"></i>Settings
-                    </a>
-                </li>
-            </ul>
-        </div>
-    </div>
-
     <div class="container-fluid">
         <div class="row">
-            <!-- Sidebar -->
+            <!-- Sidebar - Desktop -->
             <div class="col-lg-2 sidebar d-none d-lg-block">
                 <div class="pt-4">
                     <ul class="nav flex-column">
@@ -716,10 +706,10 @@ function getSortIcon($column, $current_sort, $current_order) {
                             </a>
                         </li>
                         <li class="nav-item">
-    <a class="nav-link" href="rental_products.php">
-        <i class="fas fa-calendar-alt me-2"></i>Rental Products
-    </a>
-</li>
+                            <a class="nav-link" href="rental_products.php">
+                                <i class="fas fa-calendar-alt me-2"></i>Rental Products
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="orders.php">
                                 <i class="fas fa-shopping-cart me-2"></i>Orders
@@ -750,16 +740,16 @@ function getSortIcon($column, $current_sort, $current_order) {
             </div>
 
             <!-- Main Content -->
-            <div class="col-lg-10 col-md-12 p-4">
+            <div class="col-lg-10 col-12 p-4">
                 <!-- Alerts -->
-                <?php if (isset($success_message)): ?>
+                <?php if (!empty($success_message)): ?>
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         <?php echo $success_message; ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 <?php endif; ?>
                 
-                <?php if (isset($error_message)): ?>
+                <?php if (!empty($error_message)): ?>
                     <div class="alert alert-danger alert-dismissible fade show" role="alert">
                         <?php echo $error_message; ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -859,13 +849,16 @@ function getSortIcon($column, $current_sort, $current_order) {
                         <form method="GET" class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label">Status Filter</label>
-                                <div class="d-flex flex-wrap gap-2">
-                                    <span class="badge filter-badge <?php echo empty($status_filter) ? 'bg-primary active' : 'bg-secondary'; ?>" onclick="clearFilter()">All</span>
-                                </div>
+                                <select class="form-select" name="status" onchange="this.form.submit()">
+                                    <option value="">All Status</option>
+                                    <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active</option>
+                                    <option value="inactive" <?php echo $status_filter === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
+                                    <option value="pending" <?php echo $status_filter === 'pending' ? 'selected' : ''; ?>>Pending</option>
+                                </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Category Filter</label>
-                                <select class="form-control" name="category" onchange="this.form.submit()">
+                                <select class="form-select" name="category" onchange="this.form.submit()">
                                     <option value="">All Categories</option>
                                     <?php foreach ($categories as $cat): ?>
                                         <option value="<?php echo $cat['id']; ?>" <?php echo $category_filter == $cat['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($cat['name']); ?></option>
@@ -876,7 +869,7 @@ function getSortIcon($column, $current_sort, $current_order) {
                                 <label class="form-label">Search</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control" name="search" placeholder="Search products..." value="<?php echo htmlspecialchars($search_query); ?>">
-                                    <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
+                                    <button class="btn btn-outline-primary" type="submit"><i class="fas fa-search"></i></button>
                                 </div>
                             </div>
                         </form>
@@ -887,9 +880,6 @@ function getSortIcon($column, $current_sort, $current_order) {
                 <div class="card shadow mb-4">
                     <div class="card-header py-3 d-flex justify-content-between align-items-center">
                         <h6 class="m-0 font-weight-bold text-primary">Products</h6>
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
-                            <i class="fas fa-plus me-2"></i>Add New Product
-                        </button>
                     </div>
                     <div class="card-body">
                         <?php if (empty($products)): ?>
@@ -899,7 +889,7 @@ function getSortIcon($column, $current_sort, $current_order) {
                             </div>
                         <?php else: ?>
                             <div class="table-responsive">
-                                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                                <table class="table table-bordered" width="100%" cellspacing="0">
                                     <thead>
                                         <tr>
                                             <th>Image</th>
@@ -916,9 +906,9 @@ function getSortIcon($column, $current_sort, $current_order) {
                                             <tr>
                                                 <td>
                                                     <?php if ($product['image_url']): ?>
-                                                        <img src="../<?php echo htmlspecialchars($product['image_url']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" class="img-fluid" style="max-height: 50px;">
+                                                        <img src="../<?php echo htmlspecialchars($product['image_url']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" class="product-image">
                                                     <?php else: ?>
-                                                        <div class="bg-light border d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                                        <div class="bg-light border d-flex align-items-center justify-content-center product-image">
                                                             <i class="fas fa-image text-muted"></i>
                                                         </div>
                                                     <?php endif; ?>
@@ -955,172 +945,503 @@ function getSortIcon($column, $current_sort, $current_order) {
                                     </tbody>
                                 </table>
                             </div>
+
+                            <!-- Pagination -->
+                            <?php if ($total_pages > 1): ?>
+                                <nav aria-label="Page navigation">
+                                    <ul class="pagination justify-content-center">
+                                        <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
+                                            <a class="page-link" href="?<?php echo buildQueryString($page - 1); ?>">Previous</a>
+                                        </li>
+                                        
+                                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                            <li class="page-item <?php echo $page == $i ? 'active' : ''; ?>">
+                                                <a class="page-link" href="?<?php echo buildQueryString($i); ?>"><?php echo $i; ?></a>
+                                            </li>
+                                        <?php endfor; ?>
+                                        
+                                        <li class="page-item <?php echo $page >= $total_pages ? 'disabled' : ''; ?>">
+                                            <a class="page-link" href="?<?php echo buildQueryString($page + 1); ?>">Next</a>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
             </div>
-            <!-- /.container-fluid -->
-
         </div>
-        <!-- End of Main Content -->
+    </div>
 
-        <!-- Footer -->
-        <footer class="sticky-footer bg-white">
-            <div class="container my-auto">
-                <div class="copyright text-center my-auto">
-                    <span>Copyright &copy; BSDO Sale <?php echo date('Y'); ?></span>
+    <!-- Footer -->
+    <footer class="py-4 bg-white mt-auto">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center justify-content-between small">
+                <div class="text-muted">Copyright &copy; BSDO Sale <?php echo date('Y'); ?></div>
+                <div>
+                    <a href="#" class="small text-muted me-3">Privacy Policy</a>
+                    <a href="#" class="small text-muted">Terms &amp; Conditions</a>
                 </div>
             </div>
-        </footer>
-        <!-- End of Footer -->
+        </div>
+    </footer>
 
+    <!-- Scroll to Top Button-->
+    <a class="scroll-to-top rounded" href="#page-top" style="display: none;">
+        <i class="fas fa-angle-up"></i>
+    </a>
+
+    <!-- Mobile Sidebar Modal -->
+    <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="mobileSidebar">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title">Menu</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link" href="dashboard.php">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="products.php">
+                        <i class="fas fa-box me-2"></i>Products
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="rental_products.php">
+                        <i class="fas fa-calendar-alt me-2"></i>Rental Products
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="orders.php">
+                        <i class="fas fa-shopping-cart me-2"></i>Orders
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="live_stream.php">
+                        <i class="fas fa-video me-2"></i>Live Stream
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="analytics.php">
+                        <i class="fas fa-chart-bar me-2"></i>Analytics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="profile.php">
+                        <i class="fas fa-user me-2"></i>Profile
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="../logout.php">
+                        <i class="fas fa-sign-out-alt me-2"></i>Logout
+                    </a>
+                </li>
+            </ul>
+        </div>
     </div>
-    <!-- End of Content Wrapper -->
 
-</div>
-<!-- End of Page Wrapper -->
+    <!-- Add Product Modal -->
+    <div class="modal fade" id="addProductModal" tabindex="-1" aria-labelledby="addProductModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="add_product">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addProductModalLabel">Add New Product</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Product Name *</label>
+                                    <input type="text" class="form-control" name="name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Price ($) *</label>
+                                    <input type="number" class="form-control" name="price" step="0.01" min="0" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Description *</label>
+                            <textarea class="form-control" name="description" rows="3" required></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Stock Quantity *</label>
+                                    <input type="number" class="form-control" name="stock" min="0" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Category *</label>
+                                    <select class="form-select" name="category_id" required>
+                                        <option value="">Select Category</option>
+                                        <?php foreach ($categories as $category): ?>
+                                            <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Payment Channel *</label>
+                            <select class="form-select" name="payment_channel_id" required>
+                                <option value="">Select Payment Channel</option>
+                                <?php foreach ($payment_channels as $channel): ?>
+                                    <option value="<?php echo $channel['id']; ?>"><?php echo htmlspecialchars($channel['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Main Image</label>
+                                    <input type="file" class="form-control" name="image" accept="image/*">
+                                    <small class="form-text text-muted">Recommended: 800x600px</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Gallery Images</label>
+                                    <input type="file" class="form-control" name="gallery_images[]" accept="image/*" multiple>
+                                    <small class="form-text text-muted">Select multiple images</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Address</label>
+                                    <input type="text" class="form-control" name="address" placeholder="Street address">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">City</label>
+                                    <input type="text" class="form-control" name="city" placeholder="City">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">State/Province</label>
+                                    <input type="text" class="form-control" name="state" placeholder="State or Province">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Country</label>
+                                    <input type="text" class="form-control" name="country" placeholder="Country">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Postal Code</label>
+                            <input type="text" class="form-control" name="postal_code" placeholder="Postal Code">
+                        </div>
+                        
+                        <div class="alert alert-info mt-3" id="feeInfo" style="display: none;">
+                            <h6>Payment Verification Fee:</h6>
+                            <p>Product Price: $<span id="productPrice">0.00</span></p>
+                            <p>Verification Fee (0.5%): <strong>$<span id="feeAmount">0.00</span></strong></p>
+                            <p class="mb-0">Total Amount Due: <strong>$<span id="totalAmount">0.00</span></strong></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
-<!-- Scroll to Top Button-->
-<a class="scroll-to-top rounded" href="#page-top">
-    <i class="fas fa-angle-up"></i>
-</a>
+    <!-- Edit Product Modals -->
+    <?php foreach ($products as $product): ?>
+    <div class="modal fade" id="editProductModal<?php echo $product['id']; ?>" tabindex="-1" aria-labelledby="editProductModalLabel<?php echo $product['id']; ?>" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="edit_product">
+                    <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editProductModalLabel<?php echo $product['id']; ?>">Edit Product: <?php echo htmlspecialchars($product['name']); ?></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Product Name *</label>
+                                    <input type="text" class="form-control" name="name" value="<?php echo htmlspecialchars($product['name']); ?>" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Price ($) *</label>
+                                    <input type="number" class="form-control" name="price" step="0.01" min="0" value="<?php echo $product['price']; ?>" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Description *</label>
+                            <textarea class="form-control" name="description" rows="3" required><?php echo htmlspecialchars($product['description']); ?></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Stock Quantity *</label>
+                                    <input type="number" class="form-control" name="stock" min="0" value="<?php echo $product['stock']; ?>" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Category *</label>
+                                    <select class="form-select" name="category_id" required>
+                                        <option value="">Select Category</option>
+                                        <?php foreach ($categories as $category): ?>
+                                            <option value="<?php echo $category['id']; ?>" <?php echo $product['category_id'] == $category['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($category['name']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Payment Channel *</label>
+                            <select class="form-select" name="payment_channel_id" required>
+                                <option value="">Select Payment Channel</option>
+                                <?php foreach ($payment_channels as $channel): ?>
+                                    <option value="<?php echo $channel['id']; ?>" <?php echo $product['payment_channel_id'] == $channel['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($channel['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Main Image</label>
+                                    <?php if ($product['image_url']): ?>
+                                        <div class="mb-2">
+                                            <img src="../<?php echo htmlspecialchars($product['image_url']); ?>" alt="Current image" class="img-thumbnail" style="max-height: 100px;">
+                                        </div>
+                                    <?php endif; ?>
+                                    <input type="file" class="form-control" name="image" accept="image/*">
+                                    <small class="form-text text-muted">Leave blank to keep current image</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Gallery Images</label>
+                                    <input type="file" class="form-control" name="gallery_images[]" accept="image/*" multiple>
+                                    <small class="form-text text-muted">Select new images to add to gallery</small>
+                                    
+                                    <?php 
+                                    if (!empty($product['image_gallery'])): 
+                                        $gallery_images = json_decode($product['image_gallery'], true);
+                                        if (!empty($gallery_images)):
+                                    ?>
+                                        <div class="mt-2">
+                                            <p class="small mb-1">Current gallery images:</p>
+                                            <div class="row">
+                                                <?php foreach ($gallery_images as $image): ?>
+                                                    <div class="col-3 mb-2">
+                                                        <div class="gallery-image-container">
+                                                            <img src="../<?php echo htmlspecialchars($image); ?>" alt="Gallery image" class="img-thumbnail w-100" style="height: 80px; object-fit: cover;">
+                                                            <button type="button" class="btn btn-danger btn-sm remove-btn" onclick="markImageForRemoval(this, '<?php echo htmlspecialchars($image); ?>')">
+                                                                <i class="fas fa-times"></i>
+                                                            </button>
+                                                            <input type="hidden" name="remove_gallery_images[]" value="">
+                                                        </div>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                    <?php endif; endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Address</label>
+                                    <input type="text" class="form-control" name="address" value="<?php echo htmlspecialchars($product['address']); ?>" placeholder="Street address">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">City</label>
+                                    <input type="text" class="form-control" name="city" value="<?php echo htmlspecialchars($product['city']); ?>" placeholder="City">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">State/Province</label>
+                                    <input type="text" class="form-control" name="state" value="<?php echo htmlspecialchars($product['state']); ?>" placeholder="State or Province">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Country</label>
+                                    <input type="text" class="form-control" name="country" value="<?php echo htmlspecialchars($product['country']); ?>" placeholder="Country">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Postal Code</label>
+                            <input type="text" class="form-control" name="postal_code" value="<?php echo htmlspecialchars($product['postal_code']); ?>" placeholder="Postal Code">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php endforeach; ?>
 
-<!-- Add Product Modal -->
-<div class="modal fade" id="addProductModal" tabindex="-1" aria-labelledby="addProductModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="add_product">
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addProductModalLabel">Add New Product</h5>
+                    <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Delete</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Product Name *</label>
-                        <input type="text" class="form-control" name="name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description *</label>
-                        <textarea class="form-control" name="description" rows="3" required></textarea>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Price ($) *</label>
-                                <input type="number" class="form-control" name="price" step="0.01" min="0" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Stock Quantity *</label>
-                                <input type="number" class="form-control" name="stock" min="0" required>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Category *</label>
-                        <select class="form-control" name="category_id" required>
-                            <option value="">Select Category</option>
-                            <?php foreach ($categories as $category): ?>
-                                <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Payment Channel *</label>
-                        <select class="form-control" name="payment_channel_id" required>
-                            <option value="">Select Payment Channel</option>
-                            <?php foreach ($payment_channels as $channel): ?>
-                                <option value="<?php echo $channel['id']; ?>" <?php echo $channel['is_default'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($channel['name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Main Image</label>
-                        <input type="file" class="form-control" name="image" accept="image/*">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Gallery Images</label>
-                        <input type="file" class="form-control" name="gallery_images[]" accept="image/*" multiple>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Address</label>
-                                <input type="text" class="form-control" name="address" placeholder="Street address">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">City</label>
-                                <input type="text" class="form-control" name="city" placeholder="City">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">State/Province</label>
-                                <input type="text" class="form-control" name="state" placeholder="State or Province">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Country</label>
-                                <input type="text" class="form-control" name="country" placeholder="Country">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Postal Code</label>
-                        <input type="text" class="form-control" name="postal_code" placeholder="Postal Code">
-                    </div>
+                    <p>Are you sure you want to delete this product? This action cannot be undone.</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Product</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Bootstrap core JavaScript-->
-<script src="../vendor/jquery/jquery.min.js"></script>
-<script src="../vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-
-<!-- Core plugin JavaScript-->
-<script src="../vendor/jquery-easing/jquery.easing.min.js"></script>
-
-<!-- Custom scripts for all pages-->
-<script src="../js/sb-admin-2.min.js"></script>
-
-<!-- Page level plugins -->
-<script src="../vendor/datatables/jquery.dataTables.min.js"></script>
-<script src="../vendor/datatables/dataTables.bootstrap4.min.js"></script>
-
-<!-- Page level custom scripts -->
-<script src="../js/demo/datatables-demo.js"></script>
-
-<script>
-    function deleteProduct(productId) {
-        if (confirm('Are you sure you want to delete this product?')) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.innerHTML = `
-                <input type="hidden" name="action" value="delete_product">
-                <input type="hidden" name="product_id" value="${productId}">
-            `;
-            document.body.appendChild(form);
-            form.submit();
-        }
-    }
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    function clearFilter() {
-        window.location.href = 'products.php';
-    }
-</script>
-
+    <script>
+        // Global variable to store product ID for deletion
+        let productIdToDelete = null;
+        
+        // Initialize all modals
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fee calculation for add product form
+            const priceInput = document.querySelector('#addProductModal input[name="price"]');
+            const feeInfo = document.getElementById('feeInfo');
+            const productPriceSpan = document.getElementById('productPrice');
+            const feeAmountSpan = document.getElementById('feeAmount');
+            const totalAmountSpan = document.getElementById('totalAmount');
+            
+            if (priceInput) {
+                priceInput.addEventListener('input', function() {
+                    const price = parseFloat(this.value) || 0;
+                    if (price > 0) {
+                        const fee = price * 0.005;
+                        const total = price + fee;
+                        
+                        productPriceSpan.textContent = price.toFixed(2);
+                        feeAmountSpan.textContent = fee.toFixed(2);
+                        totalAmountSpan.textContent = total.toFixed(2);
+                        feeInfo.style.display = 'block';
+                    } else {
+                        feeInfo.style.display = 'none';
+                    }
+                });
+            }
+            
+            // Scroll to top button
+            const scrollButton = document.querySelector('.scroll-to-top');
+            if (scrollButton) {
+                window.addEventListener('scroll', function() {
+                    if (window.pageYOffset > 100) {
+                        scrollButton.style.display = 'block';
+                    } else {
+                        scrollButton.style.display = 'none';
+                    }
+                });
+                
+                scrollButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.scrollTo({top: 0, behavior: 'smooth'});
+                });
+            }
+            
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+        
+        // Delete product function
+        function deleteProduct(productId) {
+            productIdToDelete = productId;
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+            deleteModal.show();
+        }
+        
+        // Confirm delete
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            if (productIdToDelete) {
+                // Create a form and submit it
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.style.display = 'none';
+                
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'delete_product';
+                form.appendChild(actionInput);
+                
+                const idInput = document.createElement('input');
+                idInput.type = 'hidden';
+                idInput.name = 'product_id';
+                idInput.value = productIdToDelete;
+                form.appendChild(idInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+        
+        // Mark gallery image for removal
+        function markImageForRemoval(button, imagePath) {
+            const hiddenInput = button.closest('.gallery-image-container').querySelector('input[type="hidden"]');
+            if (hiddenInput) {
+                hiddenInput.value = imagePath;
+                button.closest('.col-3').style.opacity = '0.5';
+                button.disabled = true;
+            }
+        }
+    </script>
 </body>
 </html>
