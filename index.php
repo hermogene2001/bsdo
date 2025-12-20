@@ -738,6 +738,31 @@ function getCategoryIcon($categoryName) {
                         <p class="text-muted">Chat directly with sellers to get instant answers to your questions.</p>
                     </div>
                 </div>
+                <?php 
+                // Check if WhatsApp is available in social links
+                $whatsappLink = null;
+                foreach (getSocialLinks($pdo) as $link) {
+                    if (strtolower($link['name']) === 'whatsapp' && $link['is_active']) {
+                        $whatsappLink = $link;
+                        break;
+                    }
+                }
+                
+                // Display WhatsApp option if available, otherwise show Rent Products
+                if ($whatsappLink): ?>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                            <i class="fab fa-whatsapp fa-2x"></i>
+                        </div>
+                        <h4>WhatsApp Support</h4>
+                        <p class="text-muted">Connect with us directly via WhatsApp for immediate assistance and support.</p>
+                        <a href="<?php echo htmlspecialchars($whatsappLink['url']); ?>" target="_blank" class="btn btn-success mt-2">
+                            <i class="fab fa-whatsapp me-1"></i>Chat on WhatsApp
+                        </a>
+                    </div>
+                </div>
+                <?php else: ?>
                 <div class="col-md-4">
                     <div class="text-center">
                         <div class="bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
@@ -747,6 +772,7 @@ function getCategoryIcon($categoryName) {
                         <p class="text-muted">Rent products for short-term use at affordable daily or weekly rates.</p>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
     </section>
