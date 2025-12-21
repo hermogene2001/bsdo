@@ -136,19 +136,20 @@ $sql = "
     $where_clause
     GROUP BY u.id 
     ORDER BY u.created_at DESC 
-    LIMIT :limit OFFSET :offset
+    LIMIT ? OFFSET ?
 ";
 
 $stmt = $pdo->prepare($sql);
 
-// Bind parameters separately for LIMIT and OFFSET
-foreach ($params as $key => $value) {
-    $stmt->bindValue(($key + 1), $value);
+// Bind parameters for WHERE clause first
+$paramIndex = 1;
+foreach ($params as $value) {
+    $stmt->bindValue($paramIndex++, $value);
 }
 
 // Bind LIMIT and OFFSET as integers
-$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->bindValue($paramIndex++, $limit, PDO::PARAM_INT);
+$stmt->bindValue($paramIndex++, $offset, PDO::PARAM_INT);
 
 $stmt->execute();
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
