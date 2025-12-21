@@ -51,12 +51,15 @@ if ($filter_seller > 0) {
     $params[] = $filter_seller;
 }
 
-// Get withdrawal requests with seller information
+// Get withdrawal requests with seller information and referral count
 $stmt = $pdo->prepare("
-    SELECT wr.*, u.first_name, u.last_name, u.email
+    SELECT wr.*, u.first_name, u.last_name, u.email,
+           COUNT(r.id) as invited_users_count
     FROM withdrawal_requests wr
     JOIN users u ON wr.seller_id = u.id
+    LEFT JOIN referrals r ON wr.seller_id = r.inviter_id
     {$where_clause}
+    GROUP BY wr.id, u.first_name, u.last_name, u.email, u.id
     ORDER BY wr.created_at DESC
 ");
 $stmt->execute($params);
@@ -66,6 +69,19 @@ $withdrawal_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $sellers_stmt = $pdo->prepare("SELECT id, first_name, last_name FROM users WHERE role = 'seller' ORDER BY first_name, last_name");
 $sellers_stmt->execute();
 $sellers = $sellers_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Function to get invited users for a specific seller
+function getInvitedUsers($pdo, $seller_id) {
+    $stmt = $pdo->prepare("
+        SELECT r.*, u.first_name, u.last_name, u.email, u.role, u.created_at as user_created_at
+        FROM referrals r
+        JOIN users u ON r.invitee_id = u.id
+        WHERE r.inviter_id = ?
+        ORDER BY r.created_at DESC
+    ");
+    $stmt->execute([$seller_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 function formatCurrency($amount) {
     return '$' . number_format($amount, 2);
@@ -401,6 +417,7 @@ function logAdminActivity($activity) {
                                     <th>Amount</th>
                                     <th>Payment Method</th>
                                     <th>Payment Details</th>
+                                    <th>Invited Users</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -422,6 +439,17 @@ function logAdminActivity($activity) {
                                                         data-bs-toggle="modal" data-bs-target="#detailsModal<?php echo $request['id']; ?>">
                                                     View Details
                                                 </button>
+                                            </td>
+                                            <td>
+                                                <?php if ($request['invited_users_count'] > 0): ?>
+                                                    <button type="button" class="btn btn-sm btn-info" 
+                                                            data-bs-toggle="modal" data-bs-target="#invitedUsersModal" 
+                                                            onclick="loadInvitedUsers(<?php echo $request['seller_id']; ?>, '<?php echo htmlspecialchars($request['first_name'] . ' ' . $request['last_name']); ?>')">
+                                                        <?php echo $request['invited_users_count']; ?> Invited
+                                                    </button>
+                                                <?php else: ?>
+                                                    <span class="text-muted">None</span>
+                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <span class="badge <?php echo getStatusBadgeClass($request['status']); ?>">
@@ -525,7 +553,7 @@ function logAdminActivity($activity) {
                                     <?php endforeach; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted">No withdrawal requests found</td>
+                                        <td colspan="9" class="text-center text-muted">No withdrawal requests found</td>
                                     </tr>
                                 <?php endif; ?>
                             </tbody>
