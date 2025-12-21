@@ -44,6 +44,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
                 
+            case 'reset_password':
+                // Prevent resetting password for admin accounts
+                $stmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+                $stmt->execute([$user_id]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($user && $user['role'] !== 'admin') {
+                    // Reset password to a default value (e.g., 'password123')
+                    $default_password = 'password123';
+                    $hashed_password = password_hash($default_password, PASSWORD_DEFAULT);
+                    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+                    $stmt->execute([$hashed_password, $user_id]);
+                    logAdminActivity("Reset password for user ID: $user_id");
+                    $success_message = "Password reset successfully! New password: $default_password";
+                } else {
+                    $error_message = "Cannot reset password for admin accounts!";
+                }
+                break;
+                
             case 'promote_to_seller':
                 $stmt = $pdo->prepare("UPDATE users SET role = 'seller', status = 'pending' WHERE id = ? AND role = 'client'");
                 if ($stmt->execute([$user_id]) && $stmt->rowCount() > 0) {
@@ -590,6 +609,15 @@ function buildQueryString($page) {
                                                             <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
                                                             <button type="submit" name="action" value="delete" class="btn btn-danger" title="Delete">
                                                                 <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    <?php endif; ?>
+                                                    
+                                                    <?php if ($user['role'] !== 'admin'): ?>
+                                                        <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to reset this user\'s password? The new password will be \'password123\'.');">
+                                                            <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                            <button type="submit" name="action" value="reset_password" class="btn btn-secondary" title="Reset Password">
+                                                                <i class="fas fa-key"></i>
                                                             </button>
                                                         </form>
                                                     <?php endif; ?>
