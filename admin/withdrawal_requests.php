@@ -563,6 +563,31 @@ function logAdminActivity($activity) {
             </div>
         </div>
     </div>
+    
+    <!-- Invited Users Modal -->
+    <div class="modal fade" id="invitedUsersModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Invited Users</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="invitedUsersContent">
+                        <!-- Content will be loaded dynamically -->
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -581,6 +606,86 @@ function logAdminActivity($activity) {
                 }, 5000);
             });
         });
+        
+        function loadInvitedUsers(seller_id, seller_name) {
+            document.querySelector('#invitedUsersModal .modal-title').textContent = `Invited Users by ${seller_name}`;
+            document.querySelector('#invitedUsersContent').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            `;
+            
+            // Use absolute path to avoid path issues
+            fetch(`/admin/get_invited_users.php?seller_id=${seller_id}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Check if there's an error in the response
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    if (data.length > 0) {
+                        let html = `
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Reward to Inviter</th>
+                                            <th>Reward to Invitee</th>
+                                            <th>Invited Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                        `;
+                        data.forEach(user => {
+                            html += `
+                                <tr>
+                                    <td>${user.first_name} ${user.last_name}</td>
+                                    <td>${user.email}</td>
+                                    <td>
+                                        <span class="badge bg-${user.role === 'seller' ? 'primary' : 'success'}">
+                                            ${user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                                        </span>
+                                    </td>
+                                    <td>${'$' + parseFloat(user.reward_to_inviter).toFixed(2)}</td>
+                                    <td>${'$' + parseFloat(user.reward_to_invitee).toFixed(2)}</td>
+                                    <td>${user.user_created_at}</td>
+                                </tr>
+                            `;
+                        });
+                        html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                        document.querySelector('#invitedUsersContent').innerHTML = html;
+                    } else {
+                        document.querySelector('#invitedUsersContent').innerHTML = `
+                            <div class="text-center">
+                                <p>No invited users found.</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading invited users:', error);
+                    document.querySelector('#invitedUsersContent').innerHTML = `
+                        <div class="text-center">
+                            <p>Error loading invited users: ${error.message}. Please try again later.</p>
+                        </div>
+                    `;
+                });
+        }
     </script>
 </body>
 </html>
