@@ -42,6 +42,35 @@ $stats_stmt = $pdo->prepare("
 $stats_stmt->execute([$seller_id]);
 $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
 
+// Get pending payment slips for seller's products
+$pending_payment_slips_stmt = $pdo->prepare("
+    SELECT ps.*, p.name as product_name 
+    FROM payment_slips ps 
+    JOIN products p ON ps.product_id = p.id 
+    WHERE ps.seller_id = ? AND ps.status = 'pending'
+    ORDER BY ps.created_at DESC
+");
+$pending_payment_slips_stmt->execute([$seller_id]);
+$pending_payment_slips = $pending_payment_slips_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get products that need payment verification
+$unverified_products_stmt = $pdo->prepare("
+    SELECT p.*, c.name as category_name
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE p.seller_id = ? 
+    AND (p.verification_payment_status IS NULL OR p.verification_payment_status != 'paid')
+    AND p.payment_channel_id IS NOT NULL
+    ORDER BY p.created_at DESC
+");
+$unverified_products_stmt->execute([$seller_id]);
+$unverified_products = $unverified_products_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get payment verification rate setting
+$stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'payment_verification_rate'");
+$stmt->execute();
+$payment_verification_rate = floatval($stmt->fetch(PDO::FETCH_ASSOC)['setting_value'] ?? 0.50);
+
 // Get recent products
 $products_stmt = $pdo->prepare("
     SELECT p.*, c.name as category_name 
@@ -275,6 +304,16 @@ function formatCurrency($amount) {
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="payment_verification.php">
+                            <i class="fas fa-money-check me-2"></i>Payment Verification
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="withdrawal_request.php">
+                            <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="settings.php">
                             <i class="fas fa-cog me-2"></i>Settings
                         </a>
@@ -340,6 +379,16 @@ function formatCurrency($amount) {
                         <li class="nav-item">
                             <a class="nav-link" href="profile.php">
                                 <i class="fas fa-user me-2"></i>Profile
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="payment_verification.php">
+                                <i class="fas fa-money-check me-2"></i>Payment Verification
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="withdrawal_request.php">
+                                <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
                             </a>
                         </li>
                         <li class="nav-item">
@@ -543,6 +592,95 @@ function formatCurrency($amount) {
                                     </div>
                                 <?php else: ?>
                                     <p class="text-muted text-center py-3">No orders found.</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Verification Section -->
+                <div class="row mt-4">
+                    <!-- Pending Payment Verifications -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-money-check me-2"></i>Pending Payment Verifications</h5>
+                                <a href="products.php" class="btn btn-sm btn-primary">View All Products</a>
+                            </div>
+                            <div class="card-body">
+                                <?php if (!empty($pending_payment_slips)): ?>
+                                    <div class="table-responsive">
+                                        <table class="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Product</th>
+                                                    <th>Amount</th>
+                                                    <th>Date Submitted</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($pending_payment_slips as $slip): ?>
+                                                    <tr>
+                                                        <td><?php echo htmlspecialchars($slip['product_name']); ?></td>
+                                                        <td><?php echo formatCurrency($slip['amount']); ?></td>
+                                                        <td><?php echo date('M j, Y', strtotime($slip['created_at'])); ?></td>
+                                                        <td>
+                                                            <span class="badge bg-warning">Pending Review</span>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="text-muted text-center py-3">No pending payment verifications.</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Products Needing Payment Verification -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-exclamation-circle me-2"></i>Products Needing Payment Verification</h5>
+                                <a href="products.php" class="btn btn-sm btn-primary">Upload Payment</a>
+                            </div>
+                            <div class="card-body">
+                                <?php if (!empty($unverified_products)): ?>
+                                    <div class="table-responsive">
+                                        <table class="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Product</th>
+                                                    <th>Price</th>
+                                                    <th>Verification Fee</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach (array_slice($unverified_products, 0, 5) as $product): ?>
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-bold"><?php echo htmlspecialchars($product['name']); ?></div>
+                                                            <div class="small text-muted"><?php echo htmlspecialchars($product['category_name'] ?? 'Uncategorized'); ?></div>
+                                                        </td>
+                                                        <td><?php echo formatCurrency($product['price']); ?></td>
+                                                        <td><?php echo formatCurrency($product['price'] * $payment_verification_rate / 100); ?></td>
+                                                        <td>
+                                                            <span class="badge bg-danger">Payment Required</span>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <?php if (count($unverified_products) > 5): ?>
+                                        <p class="text-muted small"><?php echo (count($unverified_products) - 5); ?> more products need payment verification.</p>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <p class="text-muted text-center py-3">All products are verified!</p>
                                 <?php endif; ?>
                             </div>
                         </div>

@@ -152,7 +152,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $fee_stmt = $pdo->prepare("UPDATE products SET upload_fee = ?, upload_fee_paid = 0 WHERE id = ?");
                     $fee_stmt->execute([$upload_fee, $product_id]);
                     
-                    $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your average rental price. Check your payment slips section for payment instructions.";
+                    // Get payment channel details for the success message
+                                        $channel_stmt = $pdo->prepare("SELECT pc.account_name, pc.account_number, pc.bank_name, pc.type FROM payment_channels pc JOIN products p ON pc.id = p.payment_channel_id WHERE p.id = ?");
+                                        $channel_stmt->execute([$product_id]);
+                                        $payment_channel = $channel_stmt->fetch(PDO::FETCH_ASSOC);
+                                        
+                                        if ($payment_channel) {
+                                            $channel_info = "";
+                                            if (!empty($payment_channel['account_name'])) {
+                                                $channel_info .= "Account Name: " . htmlspecialchars($payment_channel['account_name']) . "\n";
+                                            }
+                                            if (!empty($payment_channel['account_number'])) {
+                                                $channel_info .= "Account Number: " . htmlspecialchars($payment_channel['account_number']) . "\n";
+                                            }
+                                            if (!empty($payment_channel['bank_name'])) {
+                                                $channel_info .= "Bank: " . htmlspecialchars($payment_channel['bank_name']) . "\n";
+                                            }
+                                            
+                                            if (!empty($channel_info)) {
+                                                $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your average rental price. Payment should be made to:\n" . $channel_info . "\nCheck your payment slips section for payment instructions.";
+                                            } else {
+                                                $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your average rental price. Check your payment slips section for payment instructions.";
+                                            }
+                                        } else {
+                                            $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your average rental price. Check your payment slips section for payment instructions.";
+                                        }
                 } catch (Exception $e) {
                     $error_message = "Failed to add rental product: " . $e->getMessage();
                 }
@@ -286,7 +310,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $image_url, $image_gallery_json, $address, $city, $state, $country, $postal_code,
                         $payment_channel_id, $product_id
                     ]);
-                    $success_message = "Rental product updated successfully!";
+                    // Get payment channel details for the success message
+                                        $channel_stmt = $pdo->prepare("SELECT pc.account_name, pc.account_number, pc.bank_name, pc.type FROM payment_channels pc JOIN products p ON pc.id = p.payment_channel_id WHERE p.id = ?");
+                                        $channel_stmt->execute([$product_id]);
+                                        $payment_channel = $channel_stmt->fetch(PDO::FETCH_ASSOC);
+                                        
+                                        if ($payment_channel) {
+                                            $channel_info = "";
+                                            if (!empty($payment_channel['account_name'])) {
+                                                $channel_info .= "Account Name: " . htmlspecialchars($payment_channel['account_name']) . "\n";
+                                            }
+                                            if (!empty($payment_channel['account_number'])) {
+                                                $channel_info .= "Account Number: " . htmlspecialchars($payment_channel['account_number']) . "\n";
+                                            }
+                                            if (!empty($payment_channel['bank_name'])) {
+                                                $channel_info .= "Bank: " . htmlspecialchars($payment_channel['bank_name']) . "\n";
+                                            }
+                                            
+                                            if (!empty($channel_info)) {
+                                                $success_message = "Rental product updated successfully! Payment should be made to:\n" . $channel_info . "\nCheck your payment slips section for payment instructions if you've changed the payment channel.";
+                                            } else {
+                                                $success_message = "Rental product updated successfully!";
+                                            }
+                                        } else {
+                                            $success_message = "Rental product updated successfully!";
+                                        }
                 } else {
                     $error_message = "Product not found or access denied.";
                 }
@@ -801,6 +849,16 @@ function getRentalStatusBadge($status) {
                         <i class="fas fa-cog me-2"></i>Settings
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="payment_verification.php">
+                        <i class="fas fa-money-check me-2"></i>Payment Verification
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="withdrawal_request.php">
+                        <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
+                    </a>
+                </li>
             </ul>
         </div>
     </div>
@@ -844,6 +902,16 @@ function getRentalStatusBadge($status) {
                         <li class="nav-item">
                             <a class="nav-link" href="profile.php">
                                 <i class="fas fa-user me-2"></i>Profile
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="payment_verification.php">
+                                <i class="fas fa-money-check me-2"></i>Payment Verification
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="withdrawal_request.php">
+                                <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
                             </a>
                         </li>
                         <li class="nav-item">

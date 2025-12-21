@@ -686,6 +686,8 @@ function getInvitationStatus($stream) {
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="dashboard.php"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
                         <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i>Profile</a></li>
+                        <li><a class="dropdown-item" href="payment_verification.php"><i class="fas fa-money-check me-2"></i>Payment Verification</a></li>
+                        <li><a class="dropdown-item" href="withdrawal_request.php"><i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="../logout.php"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                     </ul>
@@ -740,6 +742,16 @@ function getInvitationStatus($stream) {
                 <li class="nav-item">
                     <a class="nav-link" href="settings.php">
                         <i class="fas fa-cog me-2"></i>Settings
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="payment_verification.php">
+                        <i class="fas fa-money-check me-2"></i>Payment Verification
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="withdrawal_request.php">
+                        <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
                     </a>
                 </li>
             </ul>

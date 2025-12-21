@@ -497,6 +497,11 @@ function formatDate($date) {
                         <i class="fas fa-cog me-2"></i>Settings
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="payment_verification.php">
+                        <i class="fas fa-money-check me-2"></i>Payment Verification
+                    </a>
+                </li>
             </ul>
         </div>
     </div>
@@ -543,8 +548,8 @@ function formatDate($date) {
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="withdrawal_request.php">
-                                <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
+                            <a class="nav-link" href="payment_verification.php">
+                                <i class="fas fa-money-check me-2"></i>Payment Verification
                             </a>
                         </li>
                         <li class="nav-item">
