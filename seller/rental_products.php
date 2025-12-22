@@ -1,53 +1,514 @@
 <?php
 session_start();
 require_once '../config.php';
+require_once '../models/RentalProductModel.php';
+require_once '../utils/SecurityUtils.php';
+require_once '../utils/Logger.php';
+
+// Send security headers
+SecurityUtils::sendSecurityHeaders();
+
+// Regenerate session ID to prevent fixation attacks
+SecurityUtils::regenerateSession();
 
 // Check if user is logged in and is seller
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'seller') {
-    header('Location: ../login.php');
-    exit();
+if (!SecurityUtils::isLoggedIn() || !SecurityUtils::checkUserRole('seller')) {
+    SecurityUtils::redirectWithError('../login.php', 'You must be logged in as a seller to access this page.');
 }
+
+// Initialize model
+$rentalModel = new RentalProductModel($pdo);
 
 $seller_id = $_SESSION['user_id'];
 $error_message = '';
 $success_message = '';
 
+// Handle messages from session
+if (isset($_SESSION['error_message'])) {
+    $error_message = $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
+}
+
+if (isset($_SESSION['success_message'])) {
+    $success_message = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
+}
+
 // Get payment verification rate setting
-$stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'payment_verification_rate'");
-$stmt->execute();
-$payment_verification_rate = floatval($stmt->fetch(PDO::FETCH_ASSOC)['setting_value'] ?? 0.50);
+$payment_verification_rate = $rentalModel->getPaymentVerificationRate();
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action'])) {
-        switch ($_POST['action']) {
-            case 'add_rental_product':
-                $name = trim($_POST['name']);
-                $description = trim($_POST['description']);
-                $category_id = intval($_POST['category_id']);
-                $stock = intval($_POST['stock']);
-                $payment_channel_id = intval($_POST['payment_channel_id']);
-                
-                // Validate payment channel
-                $channel_stmt = $pdo->prepare("SELECT id FROM payment_channels WHERE id = ? AND is_active = 1");
-                $channel_stmt->execute([$payment_channel_id]);
-                if (!$channel_stmt->fetch()) {
-                    $error_message = "Invalid or inactive payment channel selected.";
+    // CSRF protection
+    if (!isset($_POST['csrf_token']) || !SecurityUtils::validateCSRFToken($_POST['csrf_token'])) {
+        $error_message = "Invalid request. Please try again.";
+        Logger::warning('CSRF token validation failed', ['user_id' => $seller_id]);
+    } else {
+        if (isset($_POST['action'])) {
+            switch ($_POST['action']) {
+                case 'add_rental_product':
+                    // Sanitize and validate input data
+                    $name = SecurityUtils::sanitizeInput($_POST['name']);
+                    $description = SecurityUtils::sanitizeInput($_POST['description']);
+                    $category_id = SecurityUtils::sanitizeInt($_POST['category_id']);
+                    $stock = SecurityUtils::sanitizeInt($_POST['stock'], 0);
+                    $payment_channel_id = SecurityUtils::sanitizeInt($_POST['payment_channel_id']);
+                    
+                    $address = SecurityUtils::sanitizeInput($_POST['address']);
+                    $city = SecurityUtils::sanitizeInput($_POST['city']);
+                    $state = SecurityUtils::sanitizeInput($_POST['state']);
+                    $country = SecurityUtils::sanitizeInput($_POST['country']);
+                    $postal_code = SecurityUtils::sanitizeInput($_POST['postal_code']);
+                    
+                    $rental_price_per_day = SecurityUtils::sanitizeFloat($_POST['rental_price_per_day'], 0);
+                    $rental_price_per_week = SecurityUtils::sanitizeFloat($_POST['rental_price_per_week'], 0);
+                    $rental_price_per_month = SecurityUtils::sanitizeFloat($_POST['rental_price_per_month'], 0);
+                    
+                    // Validate required fields
+                    if (empty($name) || empty($description) || !$category_id || !$payment_channel_id) {
+                        $error_message = "Please fill in all required fields.";
+                        Logger::warning('Missing required fields in add_rental_product', ['user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Validate prices
+                    if ($rental_price_per_day <= 0) {
+                        $error_message = "Daily rental price must be greater than zero.";
+                        Logger::warning('Invalid rental price', ['rental_price_per_day' => $rental_price_per_day, 'user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Prepare data array
+                    $data = [
+                        'name' => $name,
+                        'description' => $description,
+                        'category_id' => $category_id,
+                        'stock' => $stock,
+                        'payment_channel_id' => $payment_channel_id,
+                        'address' => $address,
+                        'city' => $city,
+                        'state' => $state,
+                        'country' => $country,
+                        'postal_code' => $postal_code,
+                        'rental_price_per_day' => $rental_price_per_day,
+                        'rental_price_per_week' => $rental_price_per_week,
+                        'rental_price_per_month' => $rental_price_per_month
+                    ];
+                    
+                    // Add rental product
+                    $result = $rentalModel->addRentalProduct($data, $seller_id);
+                    
+                    if ($result['success']) {
+                        $success_message = "Rental product added successfully!";
+                        Logger::info('Rental product added', ['product_id' => $result['product_id'], 'user_id' => $seller_id]);
+                        
+                        // Redirect to prevent resubmission
+                        $_SESSION['success_message'] = $success_message;
+                        header('Location: rental_products.php');
+                        exit();
+                    } else {
+                        $error_message = $result['error'] ?? "Failed to add rental product. Please try again.";
+                        Logger::error('Failed to add rental product', ['error' => $result['error'], 'user_id' => $seller_id]);
+                    }
                     break;
+                    
+                case 'edit_rental_product':
+                    $product_id = SecurityUtils::sanitizeInt($_POST['product_id']);
+                    
+                    if (!$product_id) {
+                        $error_message = "Invalid product ID.";
+                        Logger::warning('Invalid product ID for edit', ['product_id' => $_POST['product_id'], 'user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Sanitize and validate input data
+                    $name = SecurityUtils::sanitizeInput($_POST['name']);
+                    $description = SecurityUtils::sanitizeInput($_POST['description']);
+                    $category_id = SecurityUtils::sanitizeInt($_POST['category_id']);
+                    $stock = SecurityUtils::sanitizeInt($_POST['stock'], 0);
+                    $payment_channel_id = SecurityUtils::sanitizeInt($_POST['payment_channel_id']);
+                    
+                    $address = SecurityUtils::sanitizeInput($_POST['address']);
+                    $city = SecurityUtils::sanitizeInput($_POST['city']);
+                    $state = SecurityUtils::sanitizeInput($_POST['state']);
+                    $country = SecurityUtils::sanitizeInput($_POST['country']);
+                    $postal_code = SecurityUtils::sanitizeInput($_POST['postal_code']);
+                    
+                    $rental_price_per_day = SecurityUtils::sanitizeFloat($_POST['rental_price_per_day'], 0);
+                    $rental_price_per_week = SecurityUtils::sanitizeFloat($_POST['rental_price_per_week'], 0);
+                    $rental_price_per_month = SecurityUtils::sanitizeFloat($_POST['rental_price_per_month'], 0);
+                    
+                    // Validate required fields
+                    if (empty($name) || empty($description) || !$category_id || !$payment_channel_id) {
+                        $error_message = "Please fill in all required fields.";
+                        Logger::warning('Missing required fields in edit_rental_product', ['user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Validate prices
+                    if ($rental_price_per_day <= 0) {
+                        $error_message = "Daily rental price must be greater than zero.";
+                        Logger::warning('Invalid rental price', ['rental_price_per_day' => $rental_price_per_day, 'user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Prepare data array
+                    $data = [
+                        'name' => $name,
+                        'description' => $description,
+                        'category_id' => $category_id,
+                        'stock' => $stock,
+                        'payment_channel_id' => $payment_channel_id,
+                        'address' => $address,
+                        'city' => $city,
+                        'state' => $state,
+                        'country' => $country,
+                        'postal_code' => $postal_code,
+                        'rental_price_per_day' => $rental_price_per_day,
+                        'rental_price_per_week' => $rental_price_per_week,
+                        'rental_price_per_month' => $rental_price_per_month
+                    ];
+                    
+                    // Update rental product
+                    $result = $rentalModel->updateRentalProduct($data, $product_id, $seller_id);
+                    
+                    if ($result['success']) {
+                        $success_message = "Rental product updated successfully!";
+                        Logger::info('Rental product updated', ['product_id' => $product_id, 'user_id' => $seller_id]);
+                        
+                        // Redirect to prevent resubmission
+                        $_SESSION['success_message'] = $success_message;
+                        header('Location: rental_products.php');
+                        exit();
+                    } else {
+                        $error_message = $result['error'] ?? "Failed to update rental product. Please try again.";
+                        Logger::error('Failed to update rental product', ['error' => $result['error'], 'product_id' => $product_id, 'user_id' => $seller_id]);
+                    }
+                    break;
+                    
+                case 'delete_rental_product':
+                    $product_id = SecurityUtils::sanitizeInt($_POST['product_id']);
+                    
+                    if (!$product_id) {
+                        $error_message = "Invalid product ID.";
+                        Logger::warning('Invalid product ID for delete', ['product_id' => $_POST['product_id'], 'user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Delete rental product
+                    $result = $rentalModel->deleteRentalProduct($product_id, $seller_id);
+                    
+                    if ($result['success']) {
+                        $success_message = "Rental product deleted successfully!";
+                        Logger::info('Rental product deleted', ['product_id' => $product_id, 'user_id' => $seller_id]);
+                    } else {
+                        $error_message = $result['error'] ?? "Failed to delete rental product. Please try again.";
+                        Logger::error('Failed to delete rental product', ['error' => $result['error'], 'product_id' => $product_id, 'user_id' => $seller_id]);
+                    }
+                    break;
+                
+                case 'update_rental_product':
+                    $product_id = SecurityUtils::sanitizeInt($_POST['product_id']);
+                    
+                    if (!$product_id) {
+                        $error_message = "Invalid product ID.";
+                        Logger::warning('Invalid product ID for update', ['product_id' => $_POST['product_id'], 'user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Sanitize and validate input data
+                    $name = SecurityUtils::sanitizeInput($_POST['name']);
+                    $description = SecurityUtils::sanitizeInput($_POST['description']);
+                    $category_id = SecurityUtils::sanitizeInt($_POST['category_id']);
+                    $stock = SecurityUtils::sanitizeInt($_POST['stock'], 0);
+                    $payment_channel_id = SecurityUtils::sanitizeInt($_POST['payment_channel_id']);
+                    
+                    $rental_price_per_day = SecurityUtils::sanitizeFloat($_POST['rental_price_per_day'], 0);
+                    $rental_price_per_week = SecurityUtils::sanitizeFloat($_POST['rental_price_per_week'], 0);
+                    $rental_price_per_month = SecurityUtils::sanitizeFloat($_POST['rental_price_per_month'], 0);
+                    
+                    $min_rental_days = SecurityUtils::sanitizeInt($_POST['min_rental_days'], 1);
+                    $max_rental_days = SecurityUtils::sanitizeInt($_POST['max_rental_days'], $min_rental_days);
+                    $security_deposit = SecurityUtils::sanitizeFloat($_POST['security_deposit'], 0);
+                    
+                    $address = SecurityUtils::sanitizeInput($_POST['address']);
+                    $city = SecurityUtils::sanitizeInput($_POST['city']);
+                    $state = SecurityUtils::sanitizeInput($_POST['state']);
+                    $country = SecurityUtils::sanitizeInput($_POST['country']);
+                    $postal_code = SecurityUtils::sanitizeInput($_POST['postal_code']);
+                    
+                    // Validate required fields
+                    if (empty($name) || empty($description) || !$category_id || !$payment_channel_id) {
+                        $error_message = "Please fill in all required fields.";
+                        Logger::warning('Missing required fields in update_rental_product', ['user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Validate prices
+                    if ($rental_price_per_day <= 0) {
+                        $error_message = "Daily rental price must be greater than zero.";
+                        Logger::warning('Invalid rental price', ['rental_price_per_day' => $rental_price_per_day, 'user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Verify product belongs to seller
+                    $existing_product = $rentalModel->getRentalProductById($product_id, $seller_id);
+                    
+                    if (!$existing_product) {
+                        $error_message = "Product not found or unauthorized access.";
+                        Logger::warning('Unauthorized access to product', ['product_id' => $product_id, 'user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Handle image update
+                    $image_url = $existing_product['image_url'];
+                    $image_gallery = $existing_product['image_gallery'];
+                    
+                    // Check if user wants to remove current image
+                    if (isset($_POST['remove_current_image']) && $_POST['remove_current_image'] == 1) {
+                        // Delete the old image file
+                        if ($image_url && file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $image_url)) {
+                            unlink($_SERVER['DOCUMENT_ROOT'] . '/' . $image_url);
+                        }
+                        $image_url = '';
+                    }
+                    
+                    // Handle new image upload
+                    if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] == 0) {
+                        $upload_result = uploadProductImage($_FILES['product_image']);
+                        if ($upload_result['success']) {
+                            $image_url = $upload_result['path'];
+                        } else {
+                            $error_message = $upload_result['error'];
+                            Logger::error('Failed to upload product image', ['error' => $upload_result['error'], 'user_id' => $seller_id]);
+                            break;
+                        }
+                    }
+                    
+                    try {
+                        $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, category_id=?, stock=?, rental_price_per_day=?, rental_price_per_week=?, rental_price_per_month=?, min_rental_days=?, max_rental_days=?, security_deposit=?, address=?, city=?, state=?, country=?, postal_code=?, payment_channel_id=?, image_url=?, updated_at=NOW() WHERE id=? AND seller_id=?");
+                        
+                        $result = $stmt->execute([
+                            $name, $description, $category_id, $stock,
+                            $rental_price_per_day, $rental_price_per_week, $rental_price_per_month,
+                            $min_rental_days, $max_rental_days, $security_deposit,
+                            $address, $city, $state, $country, $postal_code,
+                            $payment_channel_id, $image_url,
+                            $product_id, $seller_id
+                        ]);
+                        
+                        if ($result) {
+                            $success_message = "Rental product updated successfully!";
+                            Logger::info('Rental product updated with image', ['product_id' => $product_id, 'user_id' => $seller_id]);
+                            
+                            // Redirect to prevent resubmission
+                            $_SESSION['success_message'] = $success_message;
+                            header('Location: rental_products.php');
+                            exit();
+                        } else {
+                            $error_message = "Failed to update rental product.";
+                            Logger::error('Failed to update rental product in database', ['product_id' => $product_id, 'user_id' => $seller_id]);
+                        }
+                    } catch (Exception $e) {
+                        $error_message = "Failed to update rental product: " . $e->getMessage();
+                        Logger::error('Exception during rental product update', ['error' => $e->getMessage(), 'product_id' => $product_id, 'user_id' => $seller_id]);
+                    }
+                    break;
+                
+                case 'upload_payment_slip':
+                    try {
+                        $product_id = SecurityUtils::sanitizeInt($_POST['product_id']);
+                        $amount = SecurityUtils::sanitizeFloat($_POST['amount'], 0);
+                        
+                        if (!$product_id || $amount <= 0) {
+                            $error_message = "Invalid product ID or amount.";
+                            Logger::warning('Invalid parameters for payment slip upload', ['product_id' => $_POST['product_id'], 'amount' => $_POST['amount'], 'user_id' => $seller_id]);
+                            break;
+                        }
+                        
+                        // Verify product belongs to seller
+                        $stmt = $pdo->prepare("SELECT id FROM products WHERE id = ? AND seller_id = ? AND is_rental = 1");
+                        $stmt->execute([$product_id, $seller_id]);
+                        
+                        if (!$stmt->fetch()) {
+                            $error_message = "Product not found or unauthorized access.";
+                            Logger::warning('Unauthorized access to product for payment slip', ['product_id' => $product_id, 'user_id' => $seller_id]);
+                            break;
+                        }
+                        
+                        // Handle file upload
+                        if (isset($_FILES['payment_slip']) && $_FILES['payment_slip']['error'] == 0) {
+                            $upload_dir = "../uploads/payment_slips/";
+                            
+                            // Create uploads directory if it doesn't exist
+                            if (!file_exists($upload_dir)) {
+                                mkdir($upload_dir, 0777, true);
+                            }
+                            
+                            // Generate unique filename
+                            $file_extension = pathinfo($_FILES['payment_slip']['name'], PATHINFO_EXTENSION);
+                            $file_name = 'payment_slip_' . $seller_id . '_' . $product_id . '_' . time() . '.' . $file_extension;
+                            $target_file = $upload_dir . $file_name;
+                            
+                            // Check file type
+                            $allowed_types = ['jpg', 'jpeg', 'png', 'pdf'];
+                            if (!in_array(strtolower($file_extension), $allowed_types)) {
+                                $error_message = "Only JPG, JPEG, PNG, and PDF files are allowed!";
+                                break;
+                            }
+                            
+                            // Check file size (5MB max)
+                            if ($_FILES['payment_slip']['size'] > 5000000) {
+                                $error_message = "File is too large. Maximum 5MB allowed!";
+                                break;
+                            }
+                            
+                            // Upload file
+                            if (move_uploaded_file($_FILES['payment_slip']['tmp_name'], $target_file)) {
+                                $slip_path = 'uploads/payment_slips/' . $file_name;
+                                
+                                // Insert payment slip record
+                                $stmt = $pdo->prepare("INSERT INTO payment_slips (product_id, seller_id, slip_path, amount, verification_rate) VALUES (?, ?, ?, ?, ?)");
+                                $stmt->execute([$product_id, $_SESSION['user_id'], $slip_path, $amount, $payment_verification_rate]);
+                                
+                                $success_message = "Payment slip uploaded successfully!";
+                                Logger::info('Payment slip uploaded', ['product_id' => $product_id, 'amount' => $amount, 'user_id' => $seller_id]);
+                                logSellerActivity("Uploaded payment slip for rental product ID: $product_id");
+                            } else {
+                                $error_message = "Sorry, there was an error uploading your file.";
+                                Logger::error('Failed to move uploaded file', ['target_file' => $target_file, 'user_id' => $seller_id]);
+                            }
+                        } else {
+                            $error_message = "Please select a file to upload!";
+                            Logger::warning('No file selected for upload', ['user_id' => $seller_id]);
+                        }
+                    } catch (Exception $e) {
+                        $error_message = "Failed to upload payment slip: " . $e->getMessage();
+                        Logger::error('Exception during payment slip upload', ['error' => $e->getMessage(), 'user_id' => $seller_id]);
+                    }
+                    break;
+            }
+        }
+    }
+}
+
+// Get rental products for this seller
+$rental_products = $rentalModel->getSellerRentalProducts($seller_id);
+
+// Get categories and payment channels for forms
+$categories = $rentalModel->getCategories();
+$payment_channels = $rentalModel->getPaymentChannels();
+
+// Generate CSRF token for forms
+$csrf_token = SecurityUtils::generateCSRFToken();
+
+// Get rental statistics
+try {
+    // Total rental products
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM products WHERE seller_id = ? AND is_rental = 1");
+    $stmt->execute([$seller_id]);
+    $total_rental_products = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+    
+    // Active rental products
+    $stmt = $pdo->prepare("SELECT COUNT(*) as active FROM products WHERE seller_id = ? AND is_rental = 1 AND stock > 0");
+    $stmt->execute([$seller_id]);
+    $active_rental_products = $stmt->fetch(PDO::FETCH_ASSOC)['active'];
+    
+    // Rental revenue stats
+    $stmt = $pdo->prepare("SELECT 
+        COUNT(oi.id) as total_rental_orders,
+        SUM(oi.price * oi.quantity) as total_rental_revenue,
+        SUM(CASE WHEN p.stock > 0 THEN 1 ELSE 0 END) as active_rental_revenue
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.id
+        WHERE p.seller_id = ? AND p.is_rental = 1");
+    $stmt->execute([$seller_id]);
+    $rental_stats = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    Logger::error('Failed to fetch rental statistics', ['error' => $e->getMessage(), 'user_id' => $seller_id]);
+    $total_rental_products = 0;
+    $active_rental_products = 0;
+    $rental_stats = [
+        'total_rental_orders' => 0,
+        'total_rental_revenue' => 0,
+        'active_rental_revenue' => 0
+    ];
+}
+
+// Image upload function
+function uploadProductImage($file) {
+    $upload_dir = "../uploads/products/";
+    
+    // Create uploads directory if it doesn't exist
+    if (!file_exists($upload_dir)) {
+        mkdir($upload_dir, 0777, true);
+    }
+    
+    // Handle single file or array of files
+    if (is_array($file['name'])) {
+        // Multiple files - for now, we'll just use the first one
+        $file = [
+            'name' => $file['name'][0],
+            'type' => $file['type'][0],
+            'tmp_name' => $file['tmp_name'][0],
+            'error' => $file['error'][0],
+            'size' => $file['size'][0]
+        ];
+    }
+    
+    // Check if file was uploaded without errors
+    if (isset($file) && $file['error'] == 0) {
+        // Get file info
+        $file_name = basename($file['name']);
+        $file_type = pathinfo($file_name, PATHINFO_EXTENSION);
+        
+        // Generate unique filename
+        $unique_name = uniqid() . '_' . time() . '.' . $file_type;
+        $target_file = $upload_dir . $unique_name;
+        
+        // Allow certain file formats
+        $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
+        if (in_array(strtolower($file_type), $allowed_types)) {
+            // Check file size (5MB max)
+            if ($file['size'] <= 5000000) {
+                // Upload file
+                if (move_uploaded_file($file['tmp_name'], $target_file)) {
+                    return ['success' => true, 'path' => 'uploads/products/' . $unique_name];
+                } else {
+                    return ['success' => false, 'error' => 'Sorry, there was an error uploading your file.'];
                 }
-                
-                // Address fields
-                $address = trim($_POST['address']);
-                $city = trim($_POST['city']);
-                $state = trim($_POST['state']);
-                $country = trim($_POST['country']);
-                $postal_code = trim($_POST['postal_code']);
-                
-                // Rental-specific fields
-                $is_rental = 1;
-                $rental_price_per_day = floatval($_POST['rental_price_per_day']);
-                $rental_price_per_week = floatval($_POST['rental_price_per_week']);
-                $rental_price_per_month = floatval($_POST['rental_price_per_month']);
+            } else {
+                return ['success' => false, 'error' => 'Sorry, your file is too large. Maximum 5MB allowed.'];
+            }
+        } else {
+            return ['success' => false, 'error' => 'Sorry, only JPG, JPEG, PNG, and GIF files are allowed.'];
+        }
+    } else {
+        return ['success' => false, 'error' => 'No file uploaded or upload error occurred.'];
+    }
+}
+
+// Log seller activity
+function logSellerActivity($activity) {
+    // This would typically log to a database
+    Logger::info('Seller activity', ['activity' => $activity]);
+}
+
+// Function to get verification status badge
+function getVerificationStatusBadge($status) {
+    switch ($status) {
+        case 'pending':
+            return '<span class="badge bg-warning">Pending</span>';
+        case 'verified':
+            return '<span class="badge bg-success">Verified</span>';
+        case 'rejected':
+            return '<span class="badge bg-danger">Rejected</span>';
+        default:
+            return '<span class="badge bg-secondary">' . ucfirst($status) . '</span>';
+    }
+}
+?>
+
                 $min_rental_days = intval($_POST['min_rental_days']);
                 $max_rental_days = intval($_POST['max_rental_days']);
                 $security_deposit = floatval($_POST['security_deposit']);
@@ -1141,6 +1602,7 @@ function getRentalStatusBadge($status) {
             </div>
             <form method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="action" value="add_rental_product">
                     
                     <div class="row">
@@ -1290,6 +1752,7 @@ function getRentalStatusBadge($status) {
             </div>
             <form method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="action" value="update_rental_product">
                     <input type="hidden" name="product_id" id="editRentalProductId">
                     
@@ -1549,6 +2012,7 @@ function getRentalStatusBadge($status) {
                             </div>
                             <form method="POST" enctype="multipart/form-data">
                                 <div class="modal-body">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                                     <input type="hidden" name="action" value="upload_payment_slip">
                                     <input type="hidden" name="product_id" value="${productId}">
                                     

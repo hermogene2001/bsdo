@@ -1,19 +1,72 @@
 <?php
 session_start();
 require_once 'config.php';
+require_once 'models/ProductModel.php';
+require_once 'utils/SecurityUtils.php';
+require_once 'utils/Logger.php';
 
-// Get filter parameters
-$category_id = isset($_GET['category']) ? intval($_GET['category']) : '';
-$search = isset($_GET['search']) ? trim($_GET['search']) : '';
-$sort = isset($_GET['sort']) ? $_GET['sort'] : 'newest';
-$min_price = isset($_GET['min_price']) ? floatval($_GET['min_price']) : '';
-$max_price = isset($_GET['max_price']) ? floatval($_GET['max_price']) : '';
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+// Send security headers
+SecurityUtils::sendSecurityHeaders();
+
+// Regenerate session ID to prevent fixation attacks
+SecurityUtils::regenerateSession();
+
+// Initialize models
+$productModel = new ProductModel($pdo);
+
+// Get filter parameters with proper validation
+$category_id = '';
+if (isset($_GET['category'])) {
+    $category_id = SecurityUtils::sanitizeInt($_GET['category']);
+    if ($category_id === false) {
+        $category_id = '';
+        Logger::warning('Invalid category ID provided', ['category' => $_GET['category']]);
+    }
+}
+
+$search = '';
+if (isset($_GET['search'])) {
+    $search = SecurityUtils::sanitizeInput($_GET['search']);
+}
+
+$sort = 'newest';
+$valid_sort_options = ['price_low', 'price_high', 'popular', 'name', 'newest'];
+if (isset($_GET['sort']) && in_array($_GET['sort'], $valid_sort_options)) {
+    $sort = $_GET['sort'];
+}
+
+$min_price = '';
+if (isset($_GET['min_price'])) {
+    $min_price = SecurityUtils::sanitizeFloat($_GET['min_price'], 0);
+    if ($min_price === false) {
+        $min_price = '';
+        Logger::warning('Invalid min_price provided', ['min_price' => $_GET['min_price']]);
+    }
+}
+
+$max_price = '';
+if (isset($_GET['max_price'])) {
+    $max_price = SecurityUtils::sanitizeFloat($_GET['max_price'], 0);
+    if ($max_price === false) {
+        $max_price = '';
+        Logger::warning('Invalid max_price provided', ['max_price' => $_GET['max_price']]);
+    }
+}
+
+$page = 1;
+if (isset($_GET['page'])) {
+    $page = SecurityUtils::sanitizeInt($_GET['page'], 1);
+    if ($page === false) {
+        $page = 1;
+        Logger::warning('Invalid page number provided', ['page' => $_GET['page']]);
+    }
+}
+
 $limit = 12; // Products per page
 $offset = ($page - 1) * $limit;
 
 // Check if user is logged in
-$is_logged_in = isset($_SESSION['user_id']);
+$is_logged_in = SecurityUtils::isLoggedIn();
 $user_id = $_SESSION['user_id'] ?? null;
 $user_role = $_SESSION['user_role'] ?? null;
 $user_name = $_SESSION['user_name'] ?? null;
@@ -21,178 +74,86 @@ $user_name = $_SESSION['user_name'] ?? null;
 $error_message = '';
 $success_message = '';
 
-// Build products query with filters
-$query = "
-    SELECT 
-        p.*, 
-        u.store_name, 
-        c.name AS category_name,
-        COALESCE(SUM(oi.quantity), 0) AS units_sold,
-        COUNT(DISTINCT oi.order_id) AS order_count
-    FROM products p
-    JOIN users u ON p.seller_id = u.id
-    LEFT JOIN categories c ON p.category_id = c.id
-    LEFT JOIN order_items oi ON p.id = oi.product_id
-    LEFT JOIN orders o ON oi.order_id = o.id AND o.status = 'completed'
-    WHERE p.status = 'active'
-";
-
-$params = [];
-$where_conditions = [];
-
-// Add category filter
-if (!empty($category_id)) {
-    $where_conditions[] = "p.category_id = ?";
-    $params[] = $category_id;
+// Handle messages from session
+if (isset($_SESSION['error_message'])) {
+    $error_message = $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
 }
 
-// Add search filter
-if (!empty($search)) {
-    $where_conditions[] = "(p.name LIKE ? OR p.description LIKE ? OR u.store_name LIKE ?)";
-    $search_term = "%$search%";
-    $params[] = $search_term;
-    $params[] = $search_term;
-    $params[] = $search_term;
+if (isset($_SESSION['success_message'])) {
+    $success_message = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
 }
 
-// Add price filters
-if (!empty($min_price)) {
-    $where_conditions[] = "p.price >= ?";
-    $params[] = $min_price;
-}
+// Prepare filters array
+$filters = [
+    'category_id' => $category_id,
+    'search' => $search,
+    'sort' => $sort,
+    'min_price' => $min_price,
+    'max_price' => $max_price,
+    'limit' => $limit,
+    'offset' => $offset
+];
 
-if (!empty($max_price)) {
-    $where_conditions[] = "p.price <= ?";
-    $params[] = $max_price;
-}
+// Get products using model
+$products = $productModel->getProducts($filters);
 
-// Add where conditions
-if (!empty($where_conditions)) {
-    $query .= " AND " . implode(" AND ", $where_conditions);
-}
-
-// Group by and sort
-$query .= " GROUP BY p.id";
-
-// Add sorting
-switch ($sort) {
-    case 'price_low':
-        $query .= " ORDER BY p.price ASC";
-        break;
-    case 'price_high':
-        $query .= " ORDER BY p.price DESC";
-        break;
-    case 'popular':
-        $query .= " ORDER BY units_sold DESC";
-        break;
-    case 'name':
-        $query .= " ORDER BY p.name ASC";
-        break;
-    case 'newest':
-    default:
-        $query .= " ORDER BY p.created_at DESC";
-        break;
-}
-
-// ✅ Add pagination (inject integers directly)
-$query .= " LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
-
-// Get products
-$products_stmt = $pdo->prepare($query);
-$products_stmt->execute($params);
-$products = $products_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get total count for pagination (apply same filters)
-$count_query = "
-    SELECT COUNT(DISTINCT p.id) AS total 
-    FROM products p
-    JOIN users u ON p.seller_id = u.id
-    WHERE p.status = 'active'
-";
-
-$count_params = [];
-$count_where_conditions = [];
-
-// Add filters
-if (!empty($category_id)) {
-    $count_where_conditions[] = "p.category_id = ?";
-    $count_params[] = $category_id;
-}
-
-if (!empty($search)) {
-    $count_where_conditions[] = "(p.name LIKE ? OR p.description LIKE ? OR u.store_name LIKE ?)";
-    $count_params[] = $search_term;
-    $count_params[] = $search_term;
-    $count_params[] = $search_term;
-}
-
-if (!empty($min_price)) {
-    $count_where_conditions[] = "p.price >= ?";
-    $count_params[] = $min_price;
-}
-
-if (!empty($max_price)) {
-    $count_where_conditions[] = "p.price <= ?";
-    $count_params[] = $max_price;
-}
-
-if (!empty($count_where_conditions)) {
-    $count_query .= " AND " . implode(" AND ", $count_where_conditions);
-}
-
-$count_stmt = $pdo->prepare($count_query);
-$count_stmt->execute($count_params);
-$total_products = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
+// Get total count for pagination
+$total_products = $productModel->getTotalProductCount($filters);
 $total_pages = ceil($total_products / $limit);
 
 // Get categories for filter
-$categories_stmt = $pdo->prepare("SELECT id, name FROM categories WHERE status = 'active' ORDER BY name");
-$categories_stmt->execute();
-$categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
+$categories = $productModel->getCategories();
+
+// Get price range for filter
+$price_range = $productModel->getPriceRange();
 
 // Handle add to cart action (only for logged in clients)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_logged_in && $user_role === 'client') {
-    if (isset($_POST['add_to_cart'])) {
-        $product_id = intval($_POST['product_id']);
-        $quantity = isset($_POST['quantity']) ? max(1, intval($_POST['quantity'])) : 1;
-        
-        // Initialize cart if not exists
-        if (!isset($_SESSION['cart'])) {
-            $_SESSION['cart'] = [];
-        }
-        
-        // Check if product exists and is in stock
-        $product_check = $pdo->prepare("SELECT name, price, stock FROM products WHERE id = ? AND status = 'active'");
-        $product_check->execute([$product_id]);
-        $product = $product_check->fetch(PDO::FETCH_ASSOC);
-        
-        if ($product) {
-            $current_quantity = isset($_SESSION['cart'][$product_id]) ? $_SESSION['cart'][$product_id]['quantity'] : 0;
+    // CSRF protection
+    if (!isset($_POST['csrf_token']) || !SecurityUtils::validateCSRFToken($_POST['csrf_token'])) {
+        $error_message = "Invalid request. Please try again.";
+        Logger::warning('CSRF token validation failed', ['user_id' => $user_id]);
+    } else {
+        if (isset($_POST['add_to_cart'])) {
+            $product_id = SecurityUtils::sanitizeInt($_POST['product_id']);
+            $quantity = 1;
             
-            if (($current_quantity + $quantity) <= $product['stock']) {
-                if (isset($_SESSION['cart'][$product_id])) {
-                    $_SESSION['cart'][$product_id]['quantity'] += $quantity;
-                } else {
-                    $_SESSION['cart'][$product_id] = [
-                        'name' => $product['name'],
-                        'price' => $product['price'],
-                        'quantity' => $quantity
-                    ];
+            if (isset($_POST['quantity'])) {
+                $quantity = SecurityUtils::sanitizeInt($_POST['quantity'], 1, 100);
+                if ($quantity === false) {
+                    $quantity = 1;
+                    Logger::warning('Invalid quantity provided', ['quantity' => $_POST['quantity']]);
                 }
-                $success_message = "Product added to cart successfully!";
-            } else {
-                $error_message = "Not enough stock available. Only " . $product['stock'] . " items left.";
             }
-        } else {
-            $error_message = "Product not found or unavailable.";
+            
+            if ($product_id !== false) {
+                // Initialize cart if not exists
+                if (!isset($_SESSION['cart'])) {
+                    $_SESSION['cart'] = [];
+                }
+                
+                // Add product to cart using model
+                $result = $productModel->addProductToCart($_SESSION['cart'], $product_id, $quantity);
+                
+                if ($result['success']) {
+                    $success_message = $result['message'];
+                    Logger::info('Product added to cart', ['product_id' => $product_id, 'quantity' => $quantity, 'user_id' => $user_id]);
+                } else {
+                    $error_message = $result['message'];
+                    Logger::warning('Failed to add product to cart', ['product_id' => $product_id, 'reason' => $error_message]);
+                }
+            } else {
+                $error_message = "Invalid product ID.";
+                Logger::warning('Invalid product ID for add to cart', ['product_id' => $_POST['product_id']]);
+            }
         }
     }
 }
 
-// Get price range for filter
-$price_range_stmt = $pdo->prepare("SELECT MIN(price) AS min_price, MAX(price) AS max_price FROM products WHERE status = 'active'");
-$price_range_stmt->execute();
-$price_range = $price_range_stmt->fetch(PDO::FETCH_ASSOC);
+// Generate CSRF token for forms
+$csrf_token = SecurityUtils::generateCSRFToken();
 
 function formatCurrency($amount) {
     return '$' . number_format($amount, 2);
@@ -244,6 +205,7 @@ function formatAddress($product) {
     
     return implode(', ', $addressParts);
 }
+?>
 ?>
 
 <!DOCTYPE html>
@@ -507,6 +469,7 @@ function formatAddress($product) {
                     <div class="mb-4">
                         <label class="form-label">Search Products</label>
                         <form method="GET" class="search-box">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                             <input type="text" name="search" class="form-control" placeholder="Search..." 
                                    value="<?php echo htmlspecialchars($search); ?>">
                             <button type="submit" class="btn btn-primary btn-sm">
@@ -536,6 +499,7 @@ function formatAddress($product) {
                     <div class="mb-4">
                         <label class="form-label">Price Range</label>
                         <form method="GET" id="priceForm">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                             <?php if (!empty($category_id)): ?>
                                 <input type="hidden" name="category" value="<?php echo $category_id; ?>">
                             <?php endif; ?>
@@ -568,6 +532,7 @@ function formatAddress($product) {
                     <div class="mb-3">
                         <label class="form-label">Sort By</label>
                         <form method="GET" id="sortForm">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                             <?php if (!empty($category_id)): ?>
                                 <input type="hidden" name="category" value="<?php echo $category_id; ?>">
                             <?php endif; ?>
@@ -705,6 +670,7 @@ function formatAddress($product) {
                                                         </div>
                                                     <?php else: ?>
                                                         <form method="POST" class="d-grid gap-2">
+                                                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                                                             <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
                                                             <div class="d-flex align-items-center gap-2">
                                                                 <label class="small text-muted">Qty:</label>
