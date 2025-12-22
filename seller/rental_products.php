@@ -112,80 +112,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     break;
                     
-                case 'edit_rental_product':
-                    $product_id = SecurityUtils::sanitizeInt($_POST['product_id']);
-                    
-                    if (!$product_id) {
-                        $error_message = "Invalid product ID.";
-                        Logger::warning('Invalid product ID for edit', ['product_id' => $_POST['product_id'], 'user_id' => $seller_id]);
-                        break;
-                    }
-                    
-                    // Sanitize and validate input data
-                    $name = SecurityUtils::sanitizeInput($_POST['name']);
-                    $description = SecurityUtils::sanitizeInput($_POST['description']);
-                    $category_id = SecurityUtils::sanitizeInt($_POST['category_id']);
-                    $stock = SecurityUtils::sanitizeInt($_POST['stock'], 0);
-                    $payment_channel_id = SecurityUtils::sanitizeInt($_POST['payment_channel_id']);
-                    
-                    $address = SecurityUtils::sanitizeInput($_POST['address']);
-                    $city = SecurityUtils::sanitizeInput($_POST['city']);
-                    $state = SecurityUtils::sanitizeInput($_POST['state']);
-                    $country = SecurityUtils::sanitizeInput($_POST['country']);
-                    $postal_code = SecurityUtils::sanitizeInput($_POST['postal_code']);
-                    
-                    $rental_price_per_day = SecurityUtils::sanitizeFloat($_POST['rental_price_per_day'], 0);
-                    $rental_price_per_week = SecurityUtils::sanitizeFloat($_POST['rental_price_per_week'], 0);
-                    $rental_price_per_month = SecurityUtils::sanitizeFloat($_POST['rental_price_per_month'], 0);
-                    
-                    // Validate required fields
-                    if (empty($name) || empty($description) || !$category_id || !$payment_channel_id) {
-                        $error_message = "Please fill in all required fields.";
-                        Logger::warning('Missing required fields in edit_rental_product', ['user_id' => $seller_id]);
-                        break;
-                    }
-                    
-                    // Validate prices
-                    if ($rental_price_per_day <= 0) {
-                        $error_message = "Daily rental price must be greater than zero.";
-                        Logger::warning('Invalid rental price', ['rental_price_per_day' => $rental_price_per_day, 'user_id' => $seller_id]);
-                        break;
-                    }
-                    
-                    // Prepare data array
-                    $data = [
-                        'name' => $name,
-                        'description' => $description,
-                        'category_id' => $category_id,
-                        'stock' => $stock,
-                        'payment_channel_id' => $payment_channel_id,
-                        'address' => $address,
-                        'city' => $city,
-                        'state' => $state,
-                        'country' => $country,
-                        'postal_code' => $postal_code,
-                        'rental_price_per_day' => $rental_price_per_day,
-                        'rental_price_per_week' => $rental_price_per_week,
-                        'rental_price_per_month' => $rental_price_per_month
-                    ];
-                    
-                    // Update rental product
-                    $result = $rentalModel->updateRentalProduct($data, $product_id, $seller_id);
-                    
-                    if ($result['success']) {
-                        $success_message = "Rental product updated successfully!";
-                        Logger::info('Rental product updated', ['product_id' => $product_id, 'user_id' => $seller_id]);
-                        
-                        // Redirect to prevent resubmission
-                        $_SESSION['success_message'] = $success_message;
-                        header('Location: rental_products.php');
-                        exit();
-                    } else {
-                        $error_message = $result['error'] ?? "Failed to update rental product. Please try again.";
-                        Logger::error('Failed to update rental product', ['error' => $result['error'], 'product_id' => $product_id, 'user_id' => $seller_id]);
-                    }
-                    break;
-                    
                 case 'delete_rental_product':
                     $product_id = SecurityUtils::sanitizeInt($_POST['product_id']);
                     
@@ -407,12 +333,12 @@ try {
     // Total rental products
     $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM products WHERE seller_id = ? AND is_rental = 1");
     $stmt->execute([$seller_id]);
-    $total_rental_products = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+    $total_rental_products = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
     
     // Active rental products
     $stmt = $pdo->prepare("SELECT COUNT(*) as active FROM products WHERE seller_id = ? AND is_rental = 1 AND stock > 0");
     $stmt->execute([$seller_id]);
-    $active_rental_products = $stmt->fetch(PDO::FETCH_ASSOC)['active'];
+    $active_rental_products = $stmt->fetch(PDO::FETCH_ASSOC)['active'] ?? 0;
     
     // Rental revenue stats
     $stmt = $pdo->prepare("SELECT 
@@ -423,15 +349,30 @@ try {
         JOIN products p ON oi.product_id = p.id
         WHERE p.seller_id = ? AND p.is_rental = 1");
     $stmt->execute([$seller_id]);
-    $rental_stats = $stmt->fetch(PDO::FETCH_ASSOC);
+    $rental_revenue_stats = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Combine all rental stats
+    $rental_stats = [
+        'total_rental_products' => $total_rental_products,
+        'active_rental_products' => $active_rental_products,
+        'total_rental_orders' => $rental_revenue_stats['total_rental_orders'] ?? 0,
+        'total_rental_revenue' => $rental_revenue_stats['total_rental_revenue'] ?? 0,
+        'active_rental_revenue' => $rental_revenue_stats['active_rental_revenue'] ?? 0,
+        'active_rentals' => $rental_revenue_stats['active_rental_revenue'] ?? 0,
+        'pending_rentals' => 0 // We'll calculate this separately if needed
+    ];
 } catch (PDOException $e) {
     Logger::error('Failed to fetch rental statistics', ['error' => $e->getMessage(), 'user_id' => $seller_id]);
     $total_rental_products = 0;
     $active_rental_products = 0;
     $rental_stats = [
+        'total_rental_products' => 0,
+        'active_rental_products' => 0,
         'total_rental_orders' => 0,
         'total_rental_revenue' => 0,
-        'active_rental_revenue' => 0
+        'active_rental_revenue' => 0,
+        'active_rentals' => 0,
+        'pending_rentals' => 0
     ];
 }
 
@@ -507,485 +448,7 @@ function getVerificationStatusBadge($status) {
             return '<span class="badge bg-secondary">' . ucfirst($status) . '</span>';
     }
 }
-?>
 
-                $min_rental_days = intval($_POST['min_rental_days']);
-                $max_rental_days = intval($_POST['max_rental_days']);
-                $security_deposit = floatval($_POST['security_deposit']);
-                
-                // Handle image uploads
-                $image_url = null;
-                $image_gallery = null;
-                
-                // Handle single image upload (main image)
-                if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] == 0) {
-                    $image_url = uploadProductImage($_FILES['product_image']);
-                }
-                
-                // Handle multiple gallery images
-                if (isset($_FILES['gallery_images']) && is_array($_FILES['gallery_images']['name']) && count($_FILES['gallery_images']['name']) > 0) {
-                    $gallery_images = [];
-                    $upload_dir = "../uploads/products/";
-                    if (!is_dir($upload_dir)) {
-                        mkdir($upload_dir, 0777, true);
-                    }
-                    
-                    for ($i = 0; $i < count($_FILES['gallery_images']['name']); $i++) {
-                        if ($_FILES['gallery_images']['error'][$i] === 0) {
-                            // Validate file type
-                            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                            if (in_array($_FILES['gallery_images']['type'][$i], $allowed_types)) {
-                                // Validate file size (5MB max)
-                                if ($_FILES['gallery_images']['size'][$i] <= 5 * 1024 * 1024) {
-                                    $file_extension = pathinfo($_FILES['gallery_images']['name'][$i], PATHINFO_EXTENSION);
-                                    $filename = 'gallery_' . time() . '_' . uniqid() . '_' . $i . '.' . $file_extension;
-                                    $target_path = $upload_dir . $filename;
-                                    
-                                    if (move_uploaded_file($_FILES['gallery_images']['tmp_name'][$i], $target_path)) {
-                                        $gallery_images[] = 'uploads/products/' . $filename;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (!empty($gallery_images)) {
-                        $image_gallery = json_encode($gallery_images);
-                    }
-                }
-                
-                try {
-                    $stmt = $pdo->prepare("
-                        INSERT INTO products 
-                        (seller_id, name, description, category_id, stock, is_rental, 
-                         rental_price_per_day, rental_price_per_week, rental_price_per_month,
-                         min_rental_days, max_rental_days, security_deposit, 
-                         image_url, image_gallery, address, city, state, country, postal_code, 
-                         payment_channel_id, status) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-                    ");
-                    $stmt->execute([
-                        $seller_id, $name, $description, $category_id, $stock, $is_rental,
-                        $rental_price_per_day, $rental_price_per_week, $rental_price_per_month,
-                        $min_rental_days, $max_rental_days, $security_deposit, 
-                        $image_url, $image_gallery, $address, $city, $state, $country, $postal_code,
-                        $payment_channel_id
-                    ]);
-                    
-                    // Calculate average rental price for referral bonus and fee
-                    $avg_rental_price = ($rental_price_per_day + $rental_price_per_week + $rental_price_per_month) / 3;
-                    
-                    // Check if this seller was referred by another seller and award 0.5% referral bonus
-                    try {
-                        $pdo->beginTransaction();
-                        
-                        // Check if this seller was referred by another seller
-                        $referral_stmt = $pdo->prepare("SELECT inviter_id FROM referrals WHERE invitee_id = ? AND invitee_role = 'seller' LIMIT 1");
-                        $referral_stmt->execute([$seller_id]);
-                        $referral_result = $referral_stmt->fetch(PDO::FETCH_ASSOC);
-                        
-                        if ($referral_result) {
-                            $inviter_id = $referral_result['inviter_id'];
-                            $referral_bonus = $avg_rental_price * 0.005; // 0.5% of average rental price
-                            
-                            // Award the referral bonus to the inviter
-                            $bonus_stmt = $pdo->prepare("INSERT INTO user_wallets (user_id, balance) VALUES (?, ?) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)");
-                            $bonus_stmt->execute([$inviter_id, $referral_bonus]);
-                            
-                            // Update the referral record with the bonus amount
-                            $update_referral_stmt = $pdo->prepare("UPDATE referrals SET reward_to_inviter = reward_to_inviter + ? WHERE invitee_id = ? AND invitee_role = 'seller'");
-                            $update_referral_stmt->execute([$referral_bonus, $seller_id]);
-                        }
-                        
-                        $pdo->commit();
-                    } catch (Exception $e) {
-                        if ($pdo->inTransaction()) {
-                            $pdo->rollBack();
-                        }
-                        error_log("Referral bonus error: " . $e->getMessage());
-                    }
-                    
-                    // Calculate 0.5% upload fee based on average rental price
-                    $upload_fee = $avg_rental_price * 0.005;
-                    
-                    // Update the product record with the fee information
-                    $product_id = $pdo->lastInsertId();
-                    $fee_stmt = $pdo->prepare("UPDATE products SET upload_fee = ?, upload_fee_paid = 0 WHERE id = ?");
-                    $fee_stmt->execute([$upload_fee, $product_id]);
-                    
-                    // Get payment channel details for the success message
-                                        $channel_stmt = $pdo->prepare("SELECT pc.account_name, pc.account_number, pc.bank_name, pc.type FROM payment_channels pc JOIN products p ON pc.id = p.payment_channel_id WHERE p.id = ?");
-                                        $channel_stmt->execute([$product_id]);
-                                        $payment_channel = $channel_stmt->fetch(PDO::FETCH_ASSOC);
-                                        
-                                        if ($payment_channel) {
-                                            $channel_info = "";
-                                            if (!empty($payment_channel['account_name'])) {
-                                                $channel_info .= "Account Name: " . htmlspecialchars($payment_channel['account_name']) . "\n";
-                                            }
-                                            if (!empty($payment_channel['account_number'])) {
-                                                $channel_info .= "Account Number: " . htmlspecialchars($payment_channel['account_number']) . "\n";
-                                            }
-                                            if (!empty($payment_channel['bank_name'])) {
-                                                $channel_info .= "Bank: " . htmlspecialchars($payment_channel['bank_name']) . "\n";
-                                            }
-                                            
-                                            if (!empty($channel_info)) {
-                                                $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your average rental price. Payment should be made to:\n" . $channel_info . "\nCheck your payment slips section for payment instructions.";
-                                            } else {
-                                                $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your average rental price. Check your payment slips section for payment instructions.";
-                                            }
-                                        } else {
-                                            $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your average rental price. Check your payment slips section for payment instructions.";
-                                        }
-                } catch (Exception $e) {
-                    $error_message = "Failed to add rental product: " . $e->getMessage();
-                }
-                break;
-                
-            case 'update_rental_product':
-                $product_id = intval($_POST['product_id']);
-                $name = trim($_POST['name']);
-                $description = trim($_POST['description']);
-                $category_id = intval($_POST['category_id']);
-                $stock = intval($_POST['stock']);
-                $payment_channel_id = intval($_POST['payment_channel_id']);
-                $rental_price_per_day = floatval($_POST['rental_price_per_day']);
-                $rental_price_per_week = floatval($_POST['rental_price_per_week']);
-                $rental_price_per_month = floatval($_POST['rental_price_per_month']);
-                $min_rental_days = intval($_POST['min_rental_days']);
-                $max_rental_days = intval($_POST['max_rental_days']);
-                $security_deposit = floatval($_POST['security_deposit']);
-                
-                // Validate payment channel
-                $channel_stmt = $pdo->prepare("SELECT id FROM payment_channels WHERE id = ? AND is_active = 1");
-                $channel_stmt->execute([$payment_channel_id]);
-                if (!$channel_stmt->fetch()) {
-                    $error_message = "Invalid or inactive payment channel selected.";
-                    break;
-                }
-                
-                // Address fields
-                $address = trim($_POST['address']);
-                $city = trim($_POST['city']);
-                $state = trim($_POST['state']);
-                $country = trim($_POST['country']);
-                $postal_code = trim($_POST['postal_code']);
-                
-                // Verify product belongs to seller
-                $stmt = $pdo->prepare("SELECT id, image_url, image_gallery FROM products WHERE id = ? AND seller_id = ?");
-                $stmt->execute([$product_id, $seller_id]);
-                $existing_product = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if ($existing_product) {
-                    // Handle image update
-                    $image_url = $existing_product['image_url'];
-                    $image_gallery = $existing_product['image_gallery'];
-                    
-                    // Check if user wants to remove current image
-                    if (isset($_POST['remove_current_image']) && $_POST['remove_current_image'] == 1) {
-                        // Delete the old image file
-                        if ($image_url && file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $image_url)) {
-                            unlink($_SERVER['DOCUMENT_ROOT'] . '/' . $image_url);
-                        }
-                        $image_url = null;
-                    }
-                    
-                    // Check if new main image is uploaded
-                    if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] == 0) {
-                        // Delete old image if exists
-                        if ($image_url && file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $image_url)) {
-                            unlink($_SERVER['DOCUMENT_ROOT'] . '/' . $image_url);
-                        }
-                        // Upload new image
-                        $image_url = uploadProductImage($_FILES['product_image']);
-                    }
-                    
-                    // Handle gallery images update
-                    $existing_gallery = !empty($image_gallery) ? json_decode($image_gallery, true) : [];
-                    
-                    // Handle new gallery image uploads
-                    if (isset($_FILES['gallery_images']) && is_array($_FILES['gallery_images']['name']) && count($_FILES['gallery_images']['name']) > 0) {
-                        $upload_dir = "../uploads/products/";
-                        if (!is_dir($upload_dir)) {
-                            mkdir($upload_dir, 0777, true);
-                        }
-                        
-                        for ($i = 0; $i < count($_FILES['gallery_images']['name']); $i++) {
-                            if ($_FILES['gallery_images']['error'][$i] === 0) {
-                                // Validate file type
-                                $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                                if (in_array($_FILES['gallery_images']['type'][$i], $allowed_types)) {
-                                    // Validate file size (5MB max)
-                                    if ($_FILES['gallery_images']['size'][$i] <= 5 * 1024 * 1024) {
-                                        $file_extension = pathinfo($_FILES['gallery_images']['name'][$i], PATHINFO_EXTENSION);
-                                        $filename = 'gallery_' . time() . '_' . uniqid() . '_' . $i . '.' . $file_extension;
-                                        $target_path = $upload_dir . $filename;
-                                        
-                                        if (move_uploaded_file($_FILES['gallery_images']['tmp_name'][$i], $target_path)) {
-                                            $existing_gallery[] = 'uploads/products/' . $filename;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Handle gallery image removal
-                    if (isset($_POST['remove_gallery_images']) && is_array($_POST['remove_gallery_images'])) {
-                        // Remove specified images
-                        foreach ($_POST['remove_gallery_images'] as $image_to_remove) {
-                            if (($key = array_search($image_to_remove, $existing_gallery)) !== false) {
-                                unset($existing_gallery[$key]);
-                                // Delete the file from server
-                                if (file_exists('../' . $image_to_remove)) {
-                                    unlink('../' . $image_to_remove);
-                                }
-                            }
-                        }
-                        
-                        // Re-index array
-                        $existing_gallery = array_values($existing_gallery);
-                    }
-                    
-                    // Update gallery JSON
-                    if (empty($existing_gallery)) {
-                        $image_gallery_json = null;
-                    } else {
-                        $image_gallery_json = json_encode($existing_gallery);
-                    }
-                    
-                    $stmt = $pdo->prepare("
-                        UPDATE products SET 
-                        name = ?, description = ?, category_id = ?, stock = ?,
-                        rental_price_per_day = ?, rental_price_per_week = ?, rental_price_per_month = ?,
-                        min_rental_days = ?, max_rental_days = ?, security_deposit = ?, 
-                        image_url = ?, image_gallery = ?, address = ?, city = ?, state = ?, country = ?, postal_code = ?,
-                        payment_channel_id = ?
-                        WHERE id = ?
-                    ");
-                    $stmt->execute([
-                        $name, $description, $category_id, $stock,
-                        $rental_price_per_day, $rental_price_per_week, $rental_price_per_month,
-                        $min_rental_days, $max_rental_days, $security_deposit, 
-                        $image_url, $image_gallery_json, $address, $city, $state, $country, $postal_code,
-                        $payment_channel_id, $product_id
-                    ]);
-                    // Get payment channel details for the success message
-                                        $channel_stmt = $pdo->prepare("SELECT pc.account_name, pc.account_number, pc.bank_name, pc.type FROM payment_channels pc JOIN products p ON pc.id = p.payment_channel_id WHERE p.id = ?");
-                                        $channel_stmt->execute([$product_id]);
-                                        $payment_channel = $channel_stmt->fetch(PDO::FETCH_ASSOC);
-                                        
-                                        if ($payment_channel) {
-                                            $channel_info = "";
-                                            if (!empty($payment_channel['account_name'])) {
-                                                $channel_info .= "Account Name: " . htmlspecialchars($payment_channel['account_name']) . "\n";
-                                            }
-                                            if (!empty($payment_channel['account_number'])) {
-                                                $channel_info .= "Account Number: " . htmlspecialchars($payment_channel['account_number']) . "\n";
-                                            }
-                                            if (!empty($payment_channel['bank_name'])) {
-                                                $channel_info .= "Bank: " . htmlspecialchars($payment_channel['bank_name']) . "\n";
-                                            }
-                                            
-                                            if (!empty($channel_info)) {
-                                                $success_message = "Rental product updated successfully! Payment should be made to:\n" . $channel_info . "\nCheck your payment slips section for payment instructions if you've changed the payment channel.";
-                                            } else {
-                                                $success_message = "Rental product updated successfully!";
-                                            }
-                                        } else {
-                                            $success_message = "Rental product updated successfully!";
-                                        }
-                } else {
-                    $error_message = "Product not found or access denied.";
-                }
-                break;
-                
-            case 'upload_payment_slip':
-                try {
-                    $product_id = intval($_POST['product_id']);
-                    $amount = floatval($_POST['amount']);
-                    
-                    // Verify the product belongs to this seller
-                    $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ? AND seller_id = ?");
-                    $stmt->execute([$product_id, $_SESSION['user_id']]);
-                    $product = $stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if (!$product) {
-                        $error_message = "Invalid product!";
-                        break;
-                    }
-                    
-                    // Handle file upload
-                    if (isset($_FILES['payment_slip']) && $_FILES['payment_slip']['error'] === UPLOAD_ERR_OK) {
-                        $upload_dir = '../uploads/payment_slips/';
-                        if (!is_dir($upload_dir)) {
-                            mkdir($upload_dir, 0755, true);
-                        }
-                        
-                        $file_name = uniqid() . '_' . basename($_FILES['payment_slip']['name']);
-                        $target_file = $upload_dir . $file_name;
-                        
-                        // Check file type
-                        $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
-                        $allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'pdf'];
-                        
-                        if (!in_array($imageFileType, $allowed_types)) {
-                            $error_message = "Only JPG, JPEG, PNG, GIF & PDF files are allowed!";
-                            break;
-                        }
-                        
-                        // Check file size (5MB max)
-                        if ($_FILES['payment_slip']['size'] > 5000000) {
-                            $error_message = "File is too large. Maximum 5MB allowed!";
-                            break;
-                        }
-                        
-                        // Upload file
-                        if (move_uploaded_file($_FILES['payment_slip']['tmp_name'], $target_file)) {
-                            $slip_path = 'uploads/payment_slips/' . $file_name;
-                            
-                            // Insert payment slip record
-                            $stmt = $pdo->prepare("INSERT INTO payment_slips (product_id, seller_id, slip_path, amount, verification_rate) VALUES (?, ?, ?, ?, ?)");
-                            $stmt->execute([$product_id, $_SESSION['user_id'], $slip_path, $amount, $payment_verification_rate]);
-                            
-                            $success_message = "Payment slip uploaded successfully!";
-                            logSellerActivity("Uploaded payment slip for rental product ID: $product_id");
-                        } else {
-                            $error_message = "Sorry, there was an error uploading your file.";
-                        }
-                    } else {
-                        $error_message = "Please select a file to upload!";
-                    }
-                } catch (Exception $e) {
-                    $error_message = "Failed to upload payment slip: " . $e->getMessage();
-                }
-                break;
-        }
-    }
-}
-
-// Image upload function
-function uploadProductImage($file) {
-    $upload_dir = "../uploads/products/";
-    
-    // Create uploads directory if it doesn't exist
-    if (!file_exists($upload_dir)) {
-        mkdir($upload_dir, 0777, true);
-    }
-    
-    // Handle single file or array of files
-    if (is_array($file['name'])) {
-        // Multiple files - for now, we'll just use the first one
-        $file = [
-            'name' => $file['name'][0],
-            'type' => $file['type'][0],
-            'tmp_name' => $file['tmp_name'][0],
-            'error' => $file['error'][0],
-            'size' => $file['size'][0]
-        ];
-    }
-    
-    // Check for upload errors
-    if ($file['error'] !== UPLOAD_ERR_OK) {
-        throw new Exception("File upload error: " . $file['error']);
-    }
-    
-    // Validate file type
-    $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!in_array($file['type'], $allowed_types)) {
-        throw new Exception("Only JPG, PNG, GIF, and WebP images are allowed.");
-    }
-    
-    // Validate file size (2MB max)
-    if ($file['size'] > 5 * 1024 * 1024) {
-        throw new Exception("File size must be less than 5MB.");
-    }
-    
-    // Generate unique filename
-    $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-    $filename = uniqid() . '_' . time() . '.' . $file_extension;
-    $filepath = $upload_dir . $filename;
-    
-    // Move uploaded file
-    if (!move_uploaded_file($file['tmp_name'], $filepath)) {
-        throw new Exception("Failed to move uploaded file.");
-    }
-    
-    return "uploads/products/" . $filename;
-}
-
-// Get seller's rental products
-$rental_products_stmt = $pdo->prepare("
-    SELECT p.*, c.name as category_name,
-           COUNT(DISTINCT ro.id) as total_rentals,
-           COALESCE(SUM(CASE WHEN ro.status = 'completed' THEN ro.total_rental_amount ELSE 0 END), 0) as total_rental_revenue
-    FROM products p
-    LEFT JOIN categories c ON p.category_id = c.id
-    LEFT JOIN rental_orders ro ON p.id = ro.product_id
-    WHERE p.seller_id = ? AND p.is_rental = 1
-    GROUP BY p.id
-    ORDER BY p.created_at DESC
-");
-
-$rental_products_stmt->execute([$seller_id]);
-$rental_products = $rental_products_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get rental statistics
-$rental_stats_stmt = $pdo->prepare("
-    SELECT 
-        COUNT(DISTINCT p.id) as total_rental_products,
-        COUNT(DISTINCT ro.id) as total_rental_orders,
-        COUNT(DISTINCT CASE WHEN ro.status = 'active' THEN ro.id END) as active_rentals,
-        COUNT(DISTINCT CASE WHEN ro.status = 'pending' THEN ro.id END) as pending_rentals,
-        COALESCE(SUM(ro.total_rental_amount), 0) as total_rental_revenue,
-        COALESCE(SUM(CASE WHEN ro.status = 'active' THEN ro.total_rental_amount ELSE 0 END), 0) as active_rental_revenue
-    FROM products p
-    LEFT JOIN rental_orders ro ON p.id = ro.product_id
-    WHERE p.seller_id = ? AND p.is_rental = 1
-");
-
-$rental_stats_stmt->execute([$seller_id]);
-$rental_stats = $rental_stats_stmt->fetch(PDO::FETCH_ASSOC);
-
-// Get categories for forms
-$categories_stmt = $pdo->prepare("SELECT id, name FROM categories WHERE status = 'active' ORDER BY name");
-$categories_stmt->execute();
-$categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get payment channels for forms
-$channels_stmt = $pdo->prepare("SELECT id, name, type, account_name, account_number FROM payment_channels WHERE is_active = 1 ORDER BY name");
-$channels_stmt->execute();
-$payment_channels = $channels_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get seller information
-$seller_info_stmt = $pdo->prepare("SELECT first_name, last_name, store_name FROM users WHERE id = ?");
-$seller_info_stmt->execute([$seller_id]);
-$seller_info = $seller_info_stmt->fetch(PDO::FETCH_ASSOC);
-
-// Log seller activity
-logSellerActivity("Accessed rental products management");
-
-function logSellerActivity($activity) {
-    global $pdo, $seller_id;
-    $stmt = $pdo->prepare("INSERT INTO seller_activities (seller_id, activity, ip_address) VALUES (?, ?, ?)");
-    $stmt->execute([$seller_id, $activity, $_SERVER['REMOTE_ADDR']]);
-}
-
-function formatCurrency($amount) {
-    return '$' . number_format($amount, 2);
-}
-
-function getRentalStatusBadge($status) {
-    switch ($status) {
-        case 'active': return '<span class="badge bg-success">Active</span>';
-        case 'pending': return '<span class="badge bg-warning">Pending</span>';
-        case 'inactive': return '<span class="badge bg-secondary">Inactive</span>';
-        case 'completed': return '<span class="badge bg-info">Completed</span>';
-        case 'overdue': return '<span class="badge bg-danger">Overdue</span>';
-        default: return '<span class="badge bg-secondary">' . ucfirst($status) . '</span>';
-    }
-}
 ?>
 
 <!DOCTYPE html>
@@ -1260,9 +723,9 @@ function getRentalStatusBadge($status) {
                 <div class="dropdown">
                     <a class="nav-link dropdown-toggle text-white d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
                         <div class="bg-white rounded-circle me-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                            <span class="text-primary fw-bold"><?php echo strtoupper(substr($seller_info['first_name'], 0, 1)); ?></span>
+                            <span class="text-primary fw-bold"><?php echo strtoupper(substr($seller_info['first_name'] ?? 'S', 0, 1)); ?></span>
                         </div>
-                        <span><?php echo htmlspecialchars($seller_info['first_name'] . ' ' . $seller_info['last_name']); ?></span>
+                        <span><?php echo htmlspecialchars(($seller_info['first_name'] ?? 'Seller') . ' ' . ($seller_info['last_name'] ?? '')); ?></span>
                     </a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i>Profile</a></li>
@@ -1432,7 +895,7 @@ function getRentalStatusBadge($status) {
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Rental Products</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $rental_stats['total_rental_products']; ?></div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $rental_stats['total_rental_products'] ?? 0; ?></div>
                                     </div>
                                     <div class="col-auto">
                                         <i class="fas fa-calendar-alt fa-2x text-gray-300"></i>
@@ -1450,8 +913,8 @@ function getRentalStatusBadge($status) {
                                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Rentals</div>
                                         <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $rental_stats['total_rental_orders']; ?></div>
                                         <div class="mt-2 text-xs text-muted">
-                                            <span class="text-success"><?php echo $rental_stats['active_rentals']; ?> active</span> | 
-                                            <span class="text-warning"><?php echo $rental_stats['pending_rentals']; ?> pending</span>
+                                            <span class="text-success"><?php echo $rental_stats['active_rentals'] ?? 0; ?> active</span> | 
+                                            <span class="text-warning"><?php echo $rental_stats['pending_rentals'] ?? 0; ?> pending</span>
                                         </div>
                                     </div>
                                     <div class="col-auto">
@@ -1468,9 +931,9 @@ function getRentalStatusBadge($status) {
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Rental Revenue</div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">$<?php echo number_format($rental_stats['total_rental_revenue'], 2); ?></div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">$<?php echo number_format($rental_stats['total_rental_revenue'] ?? 0, 2); ?></div>
                                         <div class="mt-2 text-xs text-muted">
-                                            Active: $<?php echo number_format($rental_stats['active_rental_revenue'], 2); ?>
+                                            Active: $<?php echo number_format($rental_stats['active_rental_revenue'] ?? 0, 2); ?>
                                         </div>
                                     </div>
                                     <div class="col-auto">
@@ -1552,8 +1015,8 @@ function getRentalStatusBadge($status) {
                                                         <?php echo number_format($product['stock']); ?>
                                                     </span>
                                                 </td>
-                                                <td><?php echo number_format($product['total_rentals']); ?></td>
-                                                <td class="fw-bold text-success">$<?php echo number_format($product['total_rental_revenue'], 2); ?></td>
+                                                <td><?php echo number_format($product['total_rentals'] ?? 0); ?></td>
+                                                <td class="fw-bold text-success">$<?php echo number_format($product['total_rental_revenue'] ?? 0, 2); ?></td>
                                                 <td>
                                                     <?php 
                                                     // Display verification status
@@ -1574,7 +1037,7 @@ function getRentalStatusBadge($status) {
                                                     </button>
                                                     <?php if (empty($product['verification_payment_status']) || $product['verification_payment_status'] !== 'paid'): ?>
                                                         <button class="btn btn-sm btn-outline-success" 
-                                                                onclick="uploadPaymentSlip(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>', <?php echo $product['rental_price_per_day']; ?>, <?php echo ($product['rental_price_per_day'] * $payment_verification_rate / 100); ?>)">
+                                                                onclick="uploadPaymentSlip(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>', <?php echo $product['rental_price_per_day']; ?>, <?php echo ($product['rental_price_per_day'] * $payment_verification_rate / 100); ?>)"
                                                             <i class="fas fa-money-check"></i>
                                                         </button>
                                                     <?php endif; ?>
@@ -2035,7 +1498,7 @@ function getRentalStatusBadge($status) {
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <label class="form-label">Verification Amount (<?php echo ($payment_verification_rate * 100); ?>%)</label>
+                                        <label class="form-label">Verification Amount (<?php echo $payment_verification_rate; ?>%)</label>
                                         <input type="number" class="form-control" name="amount" step="0.01" min="0" value="${verificationAmount.toFixed(2)}" required>
                                         <div class="form-text">Enter the amount you paid for verification</div>
                                     </div>

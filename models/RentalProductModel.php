@@ -14,10 +14,14 @@ class RentalProductModel {
     public function getSellerRentalProducts($seller_id) {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT p.*, pc.name as payment_channel_name 
-                FROM products p 
-                LEFT JOIN payment_channels pc ON p.payment_channel_id = pc.id 
-                WHERE p.seller_id = ? AND p.is_rental = 1 
+                SELECT p.*, pc.name as payment_channel_name,
+                       COUNT(DISTINCT ro.id) as total_rentals,
+                       COALESCE(SUM(CASE WHEN ro.status = 'completed' THEN ro.total_rental_amount ELSE 0 END), 0) as total_rental_revenue
+                FROM products p
+                LEFT JOIN payment_channels pc ON p.payment_channel_id = pc.id
+                LEFT JOIN rental_orders ro ON p.id = ro.product_id
+                WHERE p.seller_id = ? AND p.is_rental = 1
+                GROUP BY p.id
                 ORDER BY p.created_at DESC
             ");
             $stmt->execute([$seller_id]);

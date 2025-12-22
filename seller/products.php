@@ -568,6 +568,59 @@ function buildQueryString($page, $exclude = []) {
     return http_build_query($params);
 }
 
+// Image upload function
+function uploadProductImage($file) {
+    $upload_dir = "../uploads/products/";
+    
+    // Create uploads directory if it doesn't exist
+    if (!file_exists($upload_dir)) {
+        mkdir($upload_dir, 0777, true);
+    }
+    
+    // Handle single file or array of files
+    if (is_array($file['name'])) {
+        // Multiple files - for now, we'll just use the first one
+        $file = [
+            'name' => $file['name'][0],
+            'type' => $file['type'][0],
+            'tmp_name' => $file['tmp_name'][0],
+            'error' => $file['error'][0],
+            'size' => $file['size'][0]
+        ];
+    }
+    
+    // Check if file was uploaded without errors
+    if (isset($file) && $file['error'] == 0) {
+        // Get file info
+        $file_name = basename($file['name']);
+        $file_type = pathinfo($file_name, PATHINFO_EXTENSION);
+        
+        // Generate unique filename
+        $unique_name = uniqid() . '_' . time() . '.' . $file_type;
+        $target_file = $upload_dir . $unique_name;
+        
+        // Allow certain file formats
+        $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
+        if (in_array(strtolower($file_type), $allowed_types)) {
+            // Check file size (5MB max)
+            if ($file['size'] <= 5000000) {
+                // Upload file
+                if (move_uploaded_file($file['tmp_name'], $target_file)) {
+                    return ['success' => true, 'path' => 'uploads/products/' . $unique_name];
+                } else {
+                    return ['success' => false, 'error' => 'Sorry, there was an error uploading your file.'];
+                }
+            } else {
+                return ['success' => false, 'error' => 'Sorry, your file is too large. Maximum 5MB allowed.'];
+            }
+        } else {
+            return ['success' => false, 'error' => 'Sorry, only JPG, JPEG, PNG, and GIF files are allowed.'];
+        }
+    } else {
+        return ['success' => false, 'error' => 'No file uploaded or upload error occurred.'];
+    }
+}
+
 // Helper function to get sort icon
 function getSortIcon($column, $current_sort, $current_order) {
     if ($column === $current_sort) {
