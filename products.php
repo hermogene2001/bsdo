@@ -289,6 +289,22 @@ function formatAddress($product) {
             opacity: 1;
         }
         
+        /* Always show carousel controls on mobile devices */
+        @media (max-width: 768px) {
+            .carousel-control-prev,
+            .carousel-control-next {
+                opacity: 1;
+                width: 40px;
+                height: 40px;
+            }
+            
+            .carousel-control-prev-icon,
+            .carousel-control-next-icon {
+                width: 20px;
+                height: 20px;
+            }
+        }
+        
         .carousel-control-prev {
             left: 10px;
         }
