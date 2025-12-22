@@ -1,167 +1,185 @@
 <?php
 session_start();
 require_once '../config.php';
+require_once '../models/ProductModel.php';
+require_once '../utils/SecurityUtils.php';
+require_once '../utils/Logger.php';
+
+// Send security headers
+SecurityUtils::sendSecurityHeaders();
+
+// Regenerate session ID to prevent fixation attacks
+SecurityUtils::regenerateSession();
 
 // Check if user is logged in and is seller
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'seller') {
-    header('Location: ../login.php');
-    exit();
+if (!SecurityUtils::isLoggedIn() || !SecurityUtils::checkUserRole('seller')) {
+    SecurityUtils::redirectWithError('../login.php', 'You must be logged in as a seller to access this page.');
 }
+
+// Initialize model
+$productModel = new ProductModel($pdo);
+
+// Get seller ID
+$seller_id = $_SESSION['user_id'];
+
+// Generate CSRF token
+$csrf_token = SecurityUtils::generateCSRFToken();
 
 // Initialize messages
 $success_message = '';
 $error_message = '';
 
-// Get seller ID
-$seller_id = $_SESSION['user_id'];
+// Handle messages from session
+if (isset($_SESSION['error_message'])) {
+    $error_message = $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
+}
+
+if (isset($_SESSION['success_message'])) {
+    $success_message = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
+}
 
 // Get payment verification rate setting
-$stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'payment_verification_rate'");
-$stmt->execute();
-$payment_verification_rate = floatval($stmt->fetch(PDO::FETCH_ASSOC)['setting_value'] ?? 0.50);
+$payment_verification_rate = $productModel->getPaymentVerificationRate();
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action'])) {
-        switch ($_POST['action']) {
-            case 'add_product':
-                $name = trim($_POST['name']);
-                $description = trim($_POST['description']);
-                $price = floatval($_POST['price']);
-                $stock = intval($_POST['stock']);
-                $category_id = intval($_POST['category_id']);
-                $payment_channel_id = intval($_POST['payment_channel_id']);
-                $address = trim($_POST['address']);
-                $city = trim($_POST['city']);
-                $state = trim($_POST['state']);
-                $country = trim($_POST['country']);
-                $postal_code = trim($_POST['postal_code']);
-                
-                // Validate payment channel
-                $channel_stmt = $pdo->prepare("SELECT id FROM payment_channels WHERE id = ? AND is_active = 1");
-                $channel_stmt->execute([$payment_channel_id]);
-                if (!$channel_stmt->fetch()) {
-                    $error_message = "Invalid or inactive payment channel selected.";
-                    break;
-                }
-                
-                try {
+    // CSRF protection
+    if (!isset($_POST['csrf_token']) || !SecurityUtils::validateCSRFToken($_POST['csrf_token'])) {
+        $error_message = "Invalid request. Please try again.";
+        Logger::warning('CSRF token validation failed', ['user_id' => $seller_id]);
+    } else {
+        if (isset($_POST['action'])) {
+            switch ($_POST['action']) {
+                case 'add_product':
+                    // Sanitize and validate input data
+                    $name = SecurityUtils::sanitizeInput($_POST['name']);
+                    $description = SecurityUtils::sanitizeInput($_POST['description']);
+                    $price = SecurityUtils::sanitizeFloat($_POST['price'], 0);
+                    $stock = SecurityUtils::sanitizeInt($_POST['stock'], 0);
+                    $category_id = SecurityUtils::sanitizeInt($_POST['category_id']);
+                    $payment_channel_id = SecurityUtils::sanitizeInt($_POST['payment_channel_id']);
+                    
+                    $address = SecurityUtils::sanitizeInput($_POST['address']);
+                    $city = SecurityUtils::sanitizeInput($_POST['city']);
+                    $state = SecurityUtils::sanitizeInput($_POST['state']);
+                    $country = SecurityUtils::sanitizeInput($_POST['country']);
+                    $postal_code = SecurityUtils::sanitizeInput($_POST['postal_code']);
+                    
+                    // Validate required fields
+                    if (empty($name) || empty($description) || !$price || !$category_id || !$payment_channel_id) {
+                        $error_message = "Please fill in all required fields.";
+                        Logger::warning('Missing required fields in add_product', ['user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Validate price
+                    if ($price <= 0) {
+                        $error_message = "Price must be greater than zero.";
+                        Logger::warning('Invalid price', ['price' => $price, 'user_id' => $seller_id]);
+                        break;
+                    }
+                    
+                    // Validate payment channel
+                    $channels = $productModel->getPaymentChannels();
+                    $valid_channel = false;
+                    foreach ($channels as $channel) {
+                        if ($channel['id'] == $payment_channel_id) {
+                            $valid_channel = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!$valid_channel) {
+                        $error_message = "Invalid or inactive payment channel selected.";
+                        Logger::warning('Invalid payment channel', ['payment_channel_id' => $payment_channel_id, 'user_id' => $seller_id]);
+                        break;
+                    }
+                    
                     // Handle image upload
                     $image_url = '';
                     $image_gallery = null;
                     
-                    // Handle single image upload
-                    if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
-                        $upload_dir = '../uploads/products/';
-                        if (!is_dir($upload_dir)) {
-                            mkdir($upload_dir, 0755, true);
-                        }
-                        
-                        $file_extension = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-                        $filename = 'product_' . time() . '_' . uniqid() . '.' . $file_extension;
-                        $target_path = $upload_dir . $filename;
-                        
-                        if (move_uploaded_file($_FILES['image']['tmp_name'], $target_path)) {
-                            $image_url = 'uploads/products/' . $filename;
-                        }
-                    }
-                    
-                    // Handle multiple image uploads
-                    if (isset($_FILES['gallery_images']) && is_array($_FILES['gallery_images']['name']) && count($_FILES['gallery_images']['name']) > 0) {
-                        $gallery_images = [];
-                        $upload_dir = '../uploads/products/';
-                        if (!is_dir($upload_dir)) {
-                            mkdir($upload_dir, 0755, true);
-                        }
-                        
-                        for ($i = 0; $i < count($_FILES['gallery_images']['name']); $i++) {
-                            if ($_FILES['gallery_images']['error'][$i] === 0) {
-                                $file_extension = pathinfo($_FILES['gallery_images']['name'][$i], PATHINFO_EXTENSION);
-                                $filename = 'gallery_' . time() . '_' . uniqid() . '_' . $i . '.' . $file_extension;
-                                $target_path = $upload_dir . $filename;
-                                
-                                if (move_uploaded_file($_FILES['gallery_images']['tmp_name'][$i], $target_path)) {
-                                    $gallery_images[] = 'uploads/products/' . $filename;
-                                }
+                    try {
+                        // Handle single image upload
+                        if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
+                            $upload_result = uploadProductImage($_FILES['image']);
+                            if ($upload_result['success']) {
+                                $image_url = $upload_result['path'];
+                            } else {
+                                $error_message = $upload_result['error'];
+                                Logger::error('Failed to upload product image', ['error' => $upload_result['error'], 'user_id' => $seller_id]);
+                                break;
                             }
                         }
                         
-                        if (!empty($gallery_images)) {
-                            $image_gallery = json_encode($gallery_images);
-                        }
-                    }
-                    
-                    $stmt = $pdo->prepare("INSERT INTO products (seller_id, name, description, price, stock, category_id, payment_channel_id, image_url, image_gallery, address, city, state, country, postal_code, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')");
-                    $stmt->execute([$seller_id, $name, $description, $price, $stock, $category_id, $payment_channel_id, $image_url, $image_gallery, $address, $city, $state, $country, $postal_code]);
-                    
-                    // Check if this seller was referred by another seller and award 0.5% referral bonus
-                    try {
-                        $pdo->beginTransaction();
-                        
-                        // Check if this seller was referred by another seller
-                        $referral_stmt = $pdo->prepare("SELECT inviter_id FROM referrals WHERE invitee_id = ? AND invitee_role = 'seller' LIMIT 1");
-                        $referral_stmt->execute([$seller_id]);
-                        $referral_result = $referral_stmt->fetch(PDO::FETCH_ASSOC);
-                        
-                        if ($referral_result) {
-                            $inviter_id = $referral_result['inviter_id'];
-                            $referral_bonus = $price * 0.005; // 0.5% of product price
-                
-                            // Award the referral bonus to the inviter
-                            $bonus_stmt = $pdo->prepare("INSERT INTO user_wallets (user_id, balance) VALUES (?, ?) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)");
-                            $bonus_stmt->execute([$inviter_id, $referral_bonus]);
+                        // Handle multiple image uploads
+                        if (isset($_FILES['gallery_images']) && is_array($_FILES['gallery_images']['name']) && count($_FILES['gallery_images']['name']) > 0) {
+                            $gallery_images_array = [];
                             
-                            // Update the referral record with the bonus amount
-                            $update_referral_stmt = $pdo->prepare("UPDATE referrals SET reward_to_inviter = reward_to_inviter + ? WHERE invitee_id = ? AND invitee_role = 'seller'");
-                            $update_referral_stmt->execute([$referral_bonus, $seller_id]);
+                            for ($i = 0; $i < count($_FILES['gallery_images']['name']); $i++) {
+                                if ($_FILES['gallery_images']['error'][$i] === 0) {
+                                    $file_data = [
+                                        'name' => $_FILES['gallery_images']['name'][$i],
+                                        'type' => $_FILES['gallery_images']['type'][$i],
+                                        'tmp_name' => $_FILES['gallery_images']['tmp_name'][$i],
+                                        'error' => $_FILES['gallery_images']['error'][$i],
+                                        'size' => $_FILES['gallery_images']['size'][$i]
+                                    ];
+                                    
+                                    $upload_result = uploadProductImage($file_data);
+                                    if ($upload_result['success']) {
+                                        $gallery_images_array[] = $upload_result['path'];
+                                    } else {
+                                        Logger::warning('Failed to upload gallery image', ['error' => $upload_result['error'], 'user_id' => $seller_id]);
+                                        // Continue with other images even if one fails
+                                    }
+                                }
+                            }
+                            
+                            if (!empty($gallery_images_array)) {
+                                $image_gallery = json_encode($gallery_images_array);
+                            }
                         }
                         
-                        $pdo->commit();
-                    } catch (Exception $e) {
-                        if ($pdo->inTransaction()) {
-                            $pdo->rollBack();
-                        }
-                        error_log("Referral bonus error: " . $e->getMessage());
-                    }
-                    
-                    // Calculate 0.5% upload fee
-                    $upload_fee = $price * 0.005;
-                    
-                    // Update the product record with the fee information
-                    $product_id = $pdo->lastInsertId();
-                    $fee_stmt = $pdo->prepare("UPDATE products SET upload_fee = ?, upload_fee_paid = 0 WHERE id = ?");
-                    $fee_stmt->execute([$upload_fee, $product_id]);
-                    
-                    // Get payment channel details for the success message
-                    $channel_stmt = $pdo->prepare("SELECT pc.account_name, pc.account_number, pc.bank_name, pc.type FROM payment_channels pc JOIN products p ON pc.id = p.payment_channel_id WHERE p.id = ?");
-                    $channel_stmt->execute([$product_id]);
-                    $payment_channel = $channel_stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if ($payment_channel) {
-                        $channel_info = "";
-                        if (!empty($payment_channel['account_name'])) {
-                            $channel_info .= "Account Name: " . htmlspecialchars($payment_channel['account_name']) . "\n";
-                        }
-                        if (!empty($payment_channel['account_number'])) {
-                            $channel_info .= "Account Number: " . htmlspecialchars($payment_channel['account_number']) . "\n";
-                        }
-                        if (!empty($payment_channel['bank_name'])) {
-                            $channel_info .= "Bank: " . htmlspecialchars($payment_channel['bank_name']) . "\n";
-                        }
+                        // Prepare data array
+                        $data = [
+                            'name' => $name,
+                            'description' => $description,
+                            'price' => $price,
+                            'stock' => $stock,
+                            'category_id' => $category_id,
+                            'payment_channel_id' => $payment_channel_id,
+                            'address' => $address,
+                            'city' => $city,
+                            'state' => $state,
+                            'country' => $country,
+                            'postal_code' => $postal_code,
+                            'image_url' => $image_url,
+                            'image_gallery' => $image_gallery
+                        ];
                         
-                        if (!empty($channel_info)) {
-                            $success_message = "Product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your product price. Payment should be made to:\n" . $channel_info . "\nCheck your payment slips section for payment instructions.";
-                        } else {
+                        // Add product
+                        $result = $productModel->addProduct($seller_id, $data);
+                        
+                        if ($result['success']) {
                             $success_message = "Product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your product price. Check your payment slips section for payment instructions.";
+                            Logger::info('Product added', ['product_id' => $result['product_id'], 'user_id' => $seller_id]);
+                            
+                            // Redirect to prevent resubmission
+                            $_SESSION['success_message'] = $success_message;
+                            header('Location: products.php');
+                            exit();
+                        } else {
+                            $error_message = $result['error'] ?? "Failed to add product. Please try again.";
+                            Logger::error('Failed to add product', ['error' => $result['error'], 'user_id' => $seller_id]);
                         }
-                    } else {
-                        $success_message = "Product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your product price. Check your payment slips section for payment instructions.";
+                    } catch (Exception $e) {
+                        $error_message = "Failed to add product: " . $e->getMessage();
+                        Logger::error('Exception during product addition', ['error' => $e->getMessage(), 'user_id' => $seller_id]);
                     }
-                    logSellerActivity("Added new product: $name");
-                } catch (Exception $e) {
-                    $error_message = "Failed to add product: " . $e->getMessage();
-                }
-                break;
+                    break;
                 
             case 'edit_product':
                 $product_id = intval($_POST['product_id']);
@@ -390,7 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-
+}
 // Get filter parameters
 $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 $category_filter = isset($_GET['category']) ? $_GET['category'] : '';
@@ -674,6 +692,13 @@ function getSortIcon($column, $current_sort, $current_order) {
         
         .gallery-image-container:hover .remove-btn {
             opacity: 1;
+        }
+        
+        /* Show remove button on mobile devices */
+        @media (max-width: 768px) {
+            .gallery-image-container .remove-btn {
+                opacity: 1;
+            }
         }
         
         .scroll-to-top {
@@ -1116,6 +1141,7 @@ function getSortIcon($column, $current_sort, $current_order) {
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="action" value="add_product">
                     <div class="modal-header">
                         <h5 class="modal-title" id="addProductModalLabel">Add New Product</h5>
@@ -1246,6 +1272,7 @@ function getSortIcon($column, $current_sort, $current_order) {
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="action" value="edit_product">
                     <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
                     <div class="modal-header">
@@ -1495,6 +1522,13 @@ function getSortIcon($column, $current_sort, $current_order) {
                 idInput.name = 'product_id';
                 idInput.value = productIdToDelete;
                 form.appendChild(idInput);
+                
+                // Add CSRF token
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = '<?php echo $csrf_token; ?>';
+                form.appendChild(csrfInput);
                 
                 document.body.appendChild(form);
                 form.submit();

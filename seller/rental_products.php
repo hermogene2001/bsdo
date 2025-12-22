@@ -1232,6 +1232,14 @@ function getRentalStatusBadge($status) {
             font-size: 1.5rem;
             font-weight: 700;
         }
+        
+        /* Ensure remove buttons are visible on mobile devices */
+        @media (max-width: 768px) {
+            .btn-danger.btn-sm.position-absolute {
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+        }
     </style>
 
 </head>
