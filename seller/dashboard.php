@@ -309,6 +309,11 @@ function formatCurrency($amount) {
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="inquiries.php">
+                            <i class="fas fa-comments me-2"></i>Inquiries
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="withdrawal_request.php">
                             <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
                         </a>
@@ -384,6 +389,11 @@ function formatCurrency($amount) {
                         <li class="nav-item">
                             <a class="nav-link" href="payment_verification.php">
                                 <i class="fas fa-money-check me-2"></i>Payment Verification
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="inquiries.php">
+                                <i class="fas fa-comments me-2"></i>Inquiries
                             </a>
                         </li>
                         <li class="nav-item">
@@ -467,6 +477,13 @@ function formatCurrency($amount) {
                         <a href="settings.php" class="quick-link-card d-block" role="button" aria-label="Settings">
                             <div class="quick-link-icon"><i class="fas fa-cog"></i></div>
                             <span class="quick-link-label">Settings</span>
+                        </a>
+                    </div>
+                    <!-- Add inquiries quick link -->
+                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                        <a href="inquiries.php" class="quick-link-card d-block" role="button" aria-label="View Inquiries">
+                            <div class="quick-link-icon"><i class="fas fa-comments"></i></div>
+                            <span class="quick-link-label">Inquiries</span>
                         </a>
                     </div>
                     <!-- Optional: sample data / generate page -->

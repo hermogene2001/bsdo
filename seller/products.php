@@ -862,6 +862,11 @@ function getSortIcon($column, $current_sort, $current_order) {
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="inquiries.php">
+                                <i class="fas fa-comments me-2"></i>Inquiries
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="withdrawal_request.php">
                                 <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
                             </a>
@@ -1173,6 +1178,11 @@ function getSortIcon($column, $current_sort, $current_order) {
                 <li class="nav-item">
                     <a class="nav-link" href="payment_verification.php">
                         <i class="fas fa-money-check me-2"></i>Payment Verification
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="inquiries.php">
+                        <i class="fas fa-comments me-2"></i>Inquiries
                     </a>
                 </li>
                 <li class="nav-item">

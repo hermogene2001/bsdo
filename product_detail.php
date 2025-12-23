@@ -381,40 +381,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
                         <?php endif; ?>
                         
                         <?php if ($is_logged_in && $user_role === 'client'): ?>
-                            <?php if ($product['product_type'] === 'rental'): ?>
-                                <div class="d-grid gap-2 mb-3">
-                                    <button class="btn btn-rental btn-lg" onclick="alert('Rental booking feature coming soon!')">
-                                        <i class="fas fa-calendar-plus me-1"></i>Book Rental
-                                    </button>
-                                    <button class="btn btn-outline-primary btn-lg" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
-                                            onclick="setInquiryProduct(<?= $product['id'] ?>, '<?= htmlspecialchars($product['name'], ENT_QUOTES) ?>')">
-                                        <i class="fas fa-question-circle me-1"></i>Ask About Rental
-                                    </button>
-                                </div>
-                            <?php else: ?>
-                                <form method="POST" class="mb-3">
-                                    <div class="d-flex align-items-center gap-2 mb-3">
-                                        <label class="small text-muted">Quantity:</label>
-                                        <input type="number" name="quantity" value="1" min="1" 
-                                               max="<?= min($product['stock'], 10) ?>" 
-                                               class="form-control form-control-sm" style="width: 100px;">
-                                    </div>
-                                    <button type="submit" name="add_to_cart" class="btn btn-regular btn-lg w-100 mb-2">
-                                        <i class="fas fa-cart-plus me-1"></i>Add to Cart
-                                    </button>
-                                    <button class="btn btn-outline-primary btn-lg w-100" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
-                                            onclick="setInquiryProduct(<?= $product['id'] ?>, '<?= htmlspecialchars($product['name'], ENT_QUOTES) ?>')">
-                                        <i class="fas fa-question-circle me-1"></i>Ask About Product
-                                    </button>
-                                </form>
-                            <?php endif; ?>
+                            <div class="d-grid gap-2 mb-3">
+                                <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
+                                        onclick="setInquiryProduct(<?= $product['id'] ?>, '<?= htmlspecialchars($product['name'], ENT_QUOTES) ?>')">
+                                    <i class="fas fa-question-circle me-1"></i>Send Inquiry
+                                </button>
+                            </div>
                         <?php elseif (!$is_logged_in): ?>
                             <div class="d-grid gap-2">
                                 <a href="login.php" class="btn btn-primary btn-lg">
-                                    <i class="fas fa-lock me-1"></i>Login to Purchase
+                                    <i class="fas fa-lock me-1"></i>Login to Send Inquiry
                                 </a>
                                 <button class="btn btn-outline-primary btn-lg" data-bs-toggle="modal" data-bs-target="#loginModal">
-                                    <i class="fas fa-question-circle me-1"></i>Ask About Product
+                                    <i class="fas fa-question-circle me-1"></i>Send Inquiry
                                 </button>
                             </div>
                             

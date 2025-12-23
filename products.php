@@ -1,7 +1,6 @@
 <?php
 session_start();
 require_once 'config.php';
-require_once 'models/ProductModel.php';
 require_once 'utils/SecurityUtils.php';
 require_once 'utils/Logger.php';
 
@@ -10,9 +9,6 @@ SecurityUtils::sendSecurityHeaders();
 
 // Regenerate session ID to prevent fixation attacks
 SecurityUtils::regenerateSession();
-
-// Initialize models
-$productModel = new ProductModel($pdo);
 
 // Get filter parameters with proper validation
 $category_id = '';
@@ -96,18 +92,123 @@ $filters = [
     'offset' => $offset
 ];
 
-// Get products using model
-$products = $productModel->getProducts($filters);
+// Get products with filters
+$sql = "SELECT p.*, c.name as category_name, u.store_name, (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi JOIN orders o ON oi.order_id = o.id AND o.status = 'completed' WHERE oi.product_id = p.id) as units_sold FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN users u ON p.seller_id = u.id WHERE p.status = 'active'";
+
+$params = [];
+
+if (!empty($filters['category_id'])) {
+    $sql .= " AND p.category_id = ?";
+    $params[] = $filters['category_id'];
+}
+
+if (!empty($filters['search'])) {
+    $sql .= " AND (p.name LIKE ? OR p.description LIKE ?)";
+    $search_param = "%" . $filters['search'] . "%";
+    $params[] = $search_param;
+    $params[] = $search_param;
+}
+
+if ($filters['min_price'] !== '') {
+    $sql .= " AND p.price >= ?";
+    $params[] = $filters['min_price'];
+}
+
+if ($filters['max_price'] !== '') {
+    $sql .= " AND p.price <= ?";
+    $params[] = $filters['max_price'];
+}
+
+// Apply sorting
+$sort_sql = " ORDER BY ";
+switch ($filters['sort']) {
+    case 'price_low':
+        $sort_sql .= "p.price ASC";
+        break;
+    case 'price_high':
+        $sort_sql .= "p.price DESC";
+        break;
+    case 'popular':
+        $sort_sql .= "units_sold DESC, p.created_at DESC";
+        break;
+    case 'name':
+        $sort_sql .= "p.name ASC";
+        break;
+    case 'newest':
+    default:
+        $sort_sql .= "p.created_at DESC";
+        break;
+}
+
+// For LIMIT and OFFSET, we'll append them directly since PDO has issues with integer binding in LIMIT clauses
+$sql .= $sort_sql . " LIMIT " . (int)$filters['limit'] . " OFFSET " . (int)$filters['offset'];
+
+try {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    Logger::error('Database error fetching products', ['error' => $e->getMessage()]);
+    $products = [];
+    $error_message = "Error loading products. Please try again later.";
+}
 
 // Get total count for pagination
-$total_products = $productModel->getTotalProductCount($filters);
+$count_sql = "SELECT COUNT(*) FROM products p WHERE p.status = 'active'";
+$count_params = [];
+
+if (!empty($filters['category_id'])) {
+    $count_sql .= " AND p.category_id = ?";
+    $count_params[] = $filters['category_id'];
+}
+
+if (!empty($filters['search'])) {
+    $count_sql .= " AND (p.name LIKE ? OR p.description LIKE ?)";
+    $search_param = "%" . $filters['search'] . "%";
+    $count_params[] = $search_param;
+    $count_params[] = $search_param;
+}
+
+if ($filters['min_price'] !== '') {
+    $count_sql .= " AND p.price >= ?";
+    $count_params[] = $filters['min_price'];
+}
+
+if ($filters['max_price'] !== '') {
+    $count_sql .= " AND p.price <= ?";
+    $count_params[] = $filters['max_price'];
+}
+
+try {
+    $count_stmt = $pdo->prepare($count_sql);
+    $count_stmt->execute($count_params);
+    $total_products = $count_stmt->fetchColumn();
+} catch (PDOException $e) {
+    Logger::error('Database error counting products', ['error' => $e->getMessage()]);
+    $total_products = 0;
+}
+
 $total_pages = ceil($total_products / $limit);
 
 // Get categories for filter
-$categories = $productModel->getCategories();
+try {
+    $categories_stmt = $pdo->prepare("SELECT id, name FROM categories WHERE status = 'active' ORDER BY name");
+    $categories_stmt->execute();
+    $categories = $categories_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    Logger::error('Database error fetching categories', ['error' => $e->getMessage()]);
+    $categories = [];
+}
 
 // Get price range for filter
-$price_range = $productModel->getPriceRange();
+try {
+    $price_range_stmt = $pdo->prepare("SELECT MIN(price) as min_price, MAX(price) as max_price FROM products WHERE status = 'active'");
+    $price_range_stmt->execute();
+    $price_range = $price_range_stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    Logger::error('Database error fetching price range', ['error' => $e->getMessage()]);
+    $price_range = ['min_price' => 0, 'max_price' => 0];
+}
 
 // Handle add to cart action (only for logged in clients)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_logged_in && $user_role === 'client') {
@@ -134,8 +235,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $is_logged_in && $user_role === 'cl
                     $_SESSION['cart'] = [];
                 }
                 
-                // Add product to cart using model
-                $result = $productModel->addProductToCart($_SESSION['cart'], $product_id, $quantity);
+                // Check if product exists and is in stock
+                $product_check = $pdo->prepare("SELECT name, price, stock FROM products WHERE id = ? AND status = 'active'");
+                $product_check->execute([$product_id]);
+                $product = $product_check->fetch(PDO::FETCH_ASSOC);
+                
+                if ($product) {
+                    $current_quantity = isset($_SESSION['cart'][$product_id]) ? $_SESSION['cart'][$product_id]['quantity'] : 0;
+                    
+                    if (($current_quantity + $quantity) <= $product['stock']) {
+                        if (isset($_SESSION['cart'][$product_id])) {
+                            $_SESSION['cart'][$product_id]['quantity'] += $quantity;
+                        } else {
+                            $_SESSION['cart'][$product_id] = [
+                                'name' => $product['name'],
+                                'price' => $product['price'],
+                                'quantity' => $quantity
+                            ];
+                        }
+                        
+                        $result = ['success' => true, 'message' => 'Product added to cart successfully!'];
+                        Logger::info('Product added to cart', ['product_id' => $product_id, 'quantity' => $quantity, 'user_id' => $user_id]);
+                    } else {
+                        $result = ['success' => false, 'message' => 'Not enough stock available. Only ' . $product['stock'] . ' items left.'];
+                        Logger::warning('Insufficient stock for add to cart', ['product_id' => $product_id, 'requested' => $quantity, 'available' => $product['stock']]);
+                    }
+                } else {
+                    $result = ['success' => false, 'message' => 'Product not found or unavailable'];
+                    Logger::warning('Product not found for add to cart', ['product_id' => $product_id]);
+                }
                 
                 if ($result['success']) {
                     $success_message = $result['message'];
@@ -205,7 +333,6 @@ function formatAddress($product) {
     
     return implode(', ', $addressParts);
 }
-?>
 ?>
 
 <!DOCTYPE html>
@@ -631,8 +758,13 @@ function formatAddress($product) {
                                             <?php endif; ?>
                                         </div>
                                         <div class="card-body d-flex flex-column">
-                                            <div class="mb-2">
+                                            <div class="mb-2 d-flex flex-wrap gap-2">
                                                 <span class="category-badge"><?php echo htmlspecialchars($product['category_name'] ?? 'General'); ?></span>
+                                                <?php if ($product['product_type'] === 'rental'): ?>
+                                                    <span class="badge bg-info">Rental</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary">Regular</span>
+                                                <?php endif; ?>
                                             </div>
                                             
                                             <h6 class="card-title"><?php echo htmlspecialchars($product['name']); ?></h6>
@@ -669,59 +801,28 @@ function formatAddress($product) {
                                                 </div>
                                                 
                                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                                    <small class="text-muted">Sold: <?php echo $product['units_sold']; ?></small>
+                                                    <small class="text-muted">Sold: <?php echo $product['units_sold'] ?? 0; ?></small>
                                                     <span class="seller-badge"><?php echo htmlspecialchars($product['store_name']); ?></span>
                                                 </div>
                                                 
                                                 <?php if ($is_logged_in && $user_role === 'client'): ?>
-                                                    <?php if ($product['product_type'] === 'rental'): ?>
-                                                        <div class="d-grid gap-2">
-                                                            <button class="btn btn-warning btn-sm" onclick="alert('Rental booking feature coming soon!')">
-                                                                <i class="fas fa-calendar-plus me-1"></i>Rent Now
-                                                            </button>
-                                                            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
-                                                                    onclick="setInquiryProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>')">
-                                                                <i class="fas fa-question-circle me-1"></i>Ask About Rental
-                                                            </button>
-                                                        </div>
-                                                    <?php else: ?>
-                                                        <form method="POST" class="d-grid gap-2">
-                                                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                                                            <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <label class="small text-muted">Qty:</label>
-                                                                <input type="number" name="quantity" value="1" min="1" 
-                                                                       max="<?php echo min($product['stock'], 10); ?>" 
-                                                                       class="form-control form-control-sm quantity-input">
-                                                            </div>
-                                                            <button type="submit" name="add_to_cart" class="btn btn-primary btn-sm">
-                                                                <i class="fas fa-cart-plus me-1"></i>Add to Cart
-                                                            </button>
-                                                        </form>
-                                                    <?php endif; ?>
+                                                    <div class="d-grid gap-2">
+                                                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
+                                                                onclick="setInquiryProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>')">
+                                                            <i class="fas fa-question-circle me-1"></i>Send Inquiry
+                                                        </button>
+                                                    </div>
                                                 <?php else: ?>
                                                     <div class="d-grid gap-2">
-                                                        <?php if ($product['product_type'] === 'rental'): ?>
-                                                            <?php if ($is_logged_in): ?>
-                                                                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
-                                                                        onclick="setInquiryProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>')">
-                                                                    <i class="fas fa-question-circle me-1"></i>Ask About Rental
-                                                                </button>
-                                                            <?php else: ?>
-                                                                <a href="login.php" class="btn btn-outline-primary btn-sm">
-                                                                    <i class="fas fa-sign-in-alt me-1"></i>Login to Rent
-                                                                </a>
-                                                            <?php endif; ?>
+                                                        <?php if ($is_logged_in): ?>
+                                                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#inquiryModal" 
+                                                                    onclick="setInquiryProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>')">
+                                                                <i class="fas fa-question-circle me-1"></i>Send Inquiry
+                                                            </button>
                                                         <?php else: ?>
-                                                            <?php if ($is_logged_in): ?>
-                                                                <button class="btn btn-outline-primary btn-sm" disabled>
-                                                                    <i class="fas fa-eye me-1"></i>View Product
-                                                                </button>
-                                                            <?php else: ?>
-                                                                <a href="login.php" class="btn btn-primary btn-sm">
-                                                                    <i class="fas fa-shopping-cart me-1"></i>Login to Buy
-                                                                </a>
-                                                            <?php endif; ?>
+                                                            <a href="login.php" class="btn btn-primary btn-sm">
+                                                                <i class="fas fa-question-circle me-1"></i>Send Inquiry
+                                                            </a>
                                                         <?php endif; ?>
                                                     </div>
                                                 <?php endif; ?>
@@ -860,6 +961,103 @@ function formatAddress($product) {
                 e.preventDefault();
                 alert('Minimum price cannot be greater than maximum price.');
             }
+        });
+    </script>
+    
+    <!-- Inquiry Modal -->
+    <div class="modal fade" id="inquiryModal" tabindex="-1" aria-labelledby="inquiryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="inquiryModalLabel">Send Inquiry</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Send an inquiry to the seller about: <strong id="inquiryProductName"></strong></p>
+                    <form id="inquiryForm">
+                        <input type="hidden" id="inquiryProductId" name="product_id">
+                        <div class="mb-3">
+                            <label for="inquiryMessage" class="form-label">Your Message</label>
+                            <textarea class="form-control" id="inquiryMessage" name="message" rows="4" 
+                                      placeholder="Ask about availability, pricing, delivery, or any other questions..." required></textarea>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-1"></i>Send Inquiry
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Success Modal -->
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="successModalLabel">Inquiry Sent</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                    <p>Your inquiry has been sent to the seller successfully. They will respond shortly.</p>
+                    <p>You can view and continue the conversation in your <a href="inquiries.php">Inquiries</a> section.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function setInquiryProduct(productId, productName) {
+            document.getElementById('inquiryProductId').value = productId;
+            document.getElementById('inquiryProductName').textContent = productName;
+        }
+        
+        // Handle inquiry form submission
+        document.getElementById('inquiryForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const productId = document.getElementById('inquiryProductId').value;
+            const message = document.getElementById('inquiryMessage').value;
+            
+            if (!productId || !message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            // Send inquiry via AJAX
+            fetch('create_inquiry.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'product_id=' + encodeURIComponent(productId) + '&message=' + encodeURIComponent(message)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close inquiry modal and show success modal
+                    const inquiryModal = bootstrap.Modal.getInstance(document.getElementById('inquiryModal'));
+                    inquiryModal.hide();
+                    
+                    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                    successModal.show();
+                    
+                    // Clear form
+                    document.getElementById('inquiryForm').reset();
+                } else {
+                    alert('Failed to send inquiry: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to send inquiry. Please try again.');
+            });
         });
     </script>
 </body>

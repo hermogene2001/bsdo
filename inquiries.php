@@ -372,6 +372,140 @@ $inquiries = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Chat Modal -->
+    <div class="modal fade" id="chatModal" tabindex="-1" aria-labelledby="chatModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <div class="d-flex align-items-center w-100">
+                        <h5 class="modal-title mb-0"><i class="fas fa-comments me-2"></i><span id="chatTitle">Chat</span></h5>
+                        <small class="ms-2 text-white-50" id="chatSellerName"></small>
+                        <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div id="chatMessages" class="chat-messages" style="height: 400px; overflow-y: auto; padding: 15px; background: #f8f9fa;">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-comments fa-2x mb-3"></i>
+                            <p>Loading messages...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <input type="text" id="chatInput" class="form-control" placeholder="Type your message..." maxlength="500">
+                    <button id="sendMessageBtn" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <script>
+        let clientChatInterval = null;
+        let currentInquiryId = null;
+
+        // Open chat function
+        function openChat(inquiryId, productName, sellerName) {
+            document.getElementById('chatTitle').textContent = productName;
+            document.getElementById('chatSellerName').textContent = '(' + sellerName + ')';
+            const modalEl = document.getElementById('chatModal');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+            
+            currentInquiryId = inquiryId;
+
+            // Load messages
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-2"></i>Loading messages...</div>';
+            
+            loadMessages(inquiryId);
+
+            // Start polling while modal open
+            if (clientChatInterval) clearInterval(clientChatInterval);
+            clientChatInterval = setInterval(function(){
+                loadMessages(inquiryId);
+            }, 3000);
+
+            // Wire send button
+            document.getElementById('sendMessageBtn').onclick = function() {
+                const msg = document.getElementById('chatInput').value.trim();
+                if (!msg) return;
+                
+                sendMessage(inquiryId, msg);
+            };
+            
+            // Also allow sending with Enter key
+            document.getElementById('chatInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const msg = this.value.trim();
+                    if (msg) {
+                        sendMessage(inquiryId, msg);
+                    }
+                }
+            });
+        }
+
+        // Load messages function
+        function loadMessages(inquiryId) {
+            fetch('get_inquiry_messages.php?inquiry_id=' + inquiryId)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('chatMessages').innerHTML = html;
+                    // Auto-scroll to bottom
+                    const chatContainer = document.getElementById('chatMessages');
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                })
+                .catch(error => {
+                    console.error('Error loading messages:', error);
+                });
+        }
+
+        // Send message function
+        function sendMessage(inquiryId, message) {
+            fetch('send_message.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'inquiry_id=' + encodeURIComponent(inquiryId) + '&message=' + encodeURIComponent(message)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('chatInput').value = '';
+                    // Refresh messages to show the sent message
+                    loadMessages(inquiryId);
+                } else {
+                    alert('Failed to send message: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error sending message:', error);
+                alert('Failed to send message. Please try again.');
+            });
+        }
+
+        // Initialize chat functionality when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add event listeners to all open-chat buttons
+            document.querySelectorAll('.open-chat').forEach(button => {
+                button.addEventListener('click', function() {
+                    const inquiryId = this.getAttribute('data-inquiry-id');
+                    const productName = this.getAttribute('data-product-name');
+                    const sellerName = this.getAttribute('data-seller-name');
+                    
+                    openChat(inquiryId, productName, sellerName);
+                });
+            });
+            
+            // Clear interval when modal is closed
+            document.getElementById('chatModal').addEventListener('hidden.bs.modal', function() {
+                if (clientChatInterval) {
+                    clearInterval(clientChatInterval);
+                    clientChatInterval = null;
+                }
+            });
+        });
+    </script>
 </body>
 </html>

@@ -443,6 +443,11 @@ function getGrowthIcon($value) {
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="inquiries.php">
+                            <i class="fas fa-comments me-2"></i>Inquiries
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="withdrawal_request.php">
                             <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
                         </a>
@@ -506,15 +511,15 @@ function getGrowthIcon($value) {
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="inquiries.php">
+                                <i class="fas fa-comments me-2"></i>Inquiries
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="withdrawal_request.php">
                                 <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
                             </a>
                         </li>
-                        <li class="nav-item">
-    <a class="nav-link" href="rental_products.php">
-        <i class="fas fa-calendar-alt me-2"></i>Rental Products
-    </a>
-</li>
                         <li class="nav-item">
                             <a class="nav-link" href="payment_verification.php">
                                 <i class="fas fa-money-check me-2"></i>Payment Verification

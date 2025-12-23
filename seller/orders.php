@@ -402,6 +402,11 @@ function getStatusOptions($current_status) {
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="inquiries.php">
+                        <i class="fas fa-comments me-2"></i>Inquiries
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="withdrawal_request.php">
                         <i class="fas fa-money-bill-transfer me-2"></i>Withdraw Funds
                     </a>
@@ -454,6 +459,11 @@ function getStatusOptions($current_status) {
                         <li class="nav-item">
                             <a class="nav-link" href="payment_verification.php">
                                 <i class="fas fa-money-check me-2"></i>Payment Verification
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="inquiries.php">
+                                <i class="fas fa-comments me-2"></i>Inquiries
                             </a>
                         </li>
                         <li class="nav-item">
