@@ -99,7 +99,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $result = $rentalModel->addRentalProduct($data, $seller_id);
                     
                     if ($result['success']) {
-                        $success_message = "Rental product added successfully!";
+                        // Get payment channel details for the success message
+                        $channel_stmt = $pdo->prepare("SELECT pc.account_name, pc.account_number, pc.bank_name, pc.type FROM payment_channels pc JOIN products p ON pc.id = p.payment_channel_id WHERE p.id = ?");
+                        $channel_stmt->execute([$result['product_id']]);
+                        $payment_channel = $channel_stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($payment_channel) {
+                            $channel_info = "";
+                            if (!empty($payment_channel['account_name'])) {
+                                $channel_info .= "Account Name: " . htmlspecialchars($payment_channel['account_name']) . "\n";
+                            }
+                            if (!empty($payment_channel['account_number'])) {
+                                $channel_info .= "Account Number: " . htmlspecialchars($payment_channel['account_number']) . "\n";
+                            }
+                            if (!empty($payment_channel['bank_name'])) {
+                                $channel_info .= "Bank: " . htmlspecialchars($payment_channel['bank_name']) . "\n";
+                            }
+                            
+                            if (!empty($channel_info)) {
+                                $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your rental product's average price. Payment should be made to:\n" . $channel_info . "\nCheck your payment slips section for payment instructions or <a href='payment_verification.php'>click here to go to Payment Verification</a>.";
+                            } else {
+                                $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your rental product's average price. Check your payment slips section for payment instructions or <a href='payment_verification.php'>click here to go to Payment Verification</a>.";
+                            }
+                        } else {
+                            $success_message = "Rental product added successfully! Please make payment for verification. You will be charged a verification fee of 0.5% of your rental product's average price. Check your payment slips section for payment instructions or <a href='payment_verification.php'>click here to go to Payment Verification</a>.";
+                        }
+                        
                         Logger::info('Rental product added', ['product_id' => $result['product_id'], 'user_id' => $seller_id]);
                         
                         // Redirect to prevent resubmission

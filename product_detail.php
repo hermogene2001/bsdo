@@ -540,7 +540,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
                 if (data.success) {
                     // Close inquiry modal and show success modal
                     const inquiryModal = bootstrap.Modal.getInstance(document.getElementById('inquiryModal'));
-                    inquiryModal.hide();
+                    if (inquiryModal) {
+                        inquiryModal.hide();
+                    }
                     
                     const successModal = new bootstrap.Modal(document.getElementById('successModal'));
                     successModal.show();
@@ -548,7 +550,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
                     // Clear form
                     document.getElementById('inquiryForm').reset();
                 } else {
-                    alert('Failed to send inquiry: ' + data.message);
+                    alert('Failed to send inquiry: ' + (data.message || 'Unknown error'));
                 }
             })
             .catch(error => {
@@ -556,6 +558,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user_role === 'client') {
                 alert('Failed to send inquiry. Please try again.');
             });
         });
+        
+        // Auto-refresh inquiry count when user visits inquiries page
+        function updateInquiryCount() {
+            if (typeof fetch !== 'undefined') {
+                fetch('check_new_inquiries.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.new_messages > 0) {
+                        // Update inquiry badge if exists
+                        const inquiryLink = document.querySelector('a[href="inquiries.php"]');
+                        if (inquiryLink) {
+                            let badge = inquiryLink.querySelector('.badge');
+                            if (!badge) {
+                                badge = document.createElement('span');
+                                badge.className = 'badge bg-danger ms-1';
+                                badge.textContent = data.new_messages;
+                                inquiryLink.appendChild(badge);
+                            } else {
+                                badge.textContent = data.new_messages;
+                            }
+                        }
+                    }
+                })
+                .catch(err => console.error('Error checking inquiries:', err));
+            }
+        }
+        
+        // Check for new inquiries periodically
+        if (document.querySelector('a[href="inquiries.php"]')) {
+            updateInquiryCount();
+            setInterval(updateInquiryCount, 30000); // Check every 30 seconds
+        }
     </script>
     
     <!-- Inquiry Modal -->
