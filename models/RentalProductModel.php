@@ -38,7 +38,7 @@ class RentalProductModel {
      */
     public function getPaymentChannels() {
         try {
-            $stmt = $this->pdo->prepare("SELECT id, name FROM payment_channels WHERE is_active = 1 ORDER BY name");
+            $stmt = $this->pdo->prepare("SELECT id, name, type FROM payment_channels WHERE is_active = 1 ORDER BY name");
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
