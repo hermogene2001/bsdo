@@ -1032,7 +1032,7 @@ function getVerificationStatusBadge($status) {
                                                     <div class="small">
                                                         <div>Min: <?php echo $product['min_rental_days']; ?> days</div>
                                                         <div>Max: <?php echo $product['max_rental_days']; ?> days</div>
-                                                        <div>Deposit: $<?php echo number_format($product['security_deposit'], 2); ?></div>
+                                                        <div>Deposit: $<?php echo number_format($product['security_deposit'] ?? 0, 2); ?></div>
                                                     </div>
                                                 </td>
                                                 <td>

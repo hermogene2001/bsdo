@@ -3,10 +3,11 @@ require_once 'config.php';
 
 try {
     $stmt = $pdo->query('DESCRIBE products');
-    echo "Products table structure:\n";
-    echo "========================\n";
-    while ($row = $stmt->fetch()) {
-        echo $row['Field'] . " (" . $row['Type'] . ")\n";
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo "Products Table Structure:\n";
+    foreach ($result as $row) {
+        echo "- Field: {$row['Field']}, Type: {$row['Type']}, Null: {$row['Null']}, Key: {$row['Key']}, Default: {$row['Default']}, Extra: {$row['Extra']}\n";
     }
 } catch (Exception $e) {
     echo "Error: " . $e->getMessage() . "\n";

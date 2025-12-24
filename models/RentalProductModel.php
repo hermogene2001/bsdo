@@ -83,14 +83,18 @@ class RentalProductModel {
         try {
             $this->pdo->beginTransaction();
 
+            // Calculate average of rental prices and verification fee (0.5% of average)
+            $avg_rental_price = ($data['rental_price_per_day'] + $data['rental_price_per_week'] + $data['rental_price_per_month']) / 3;
+            $verification_fee = $avg_rental_price * 0.005; // 0.5% of average rental price
+            
             // Insert product
             $stmt = $this->pdo->prepare("
                 INSERT INTO products (
                     seller_id, name, description, category_id, stock, 
                     is_rental, rental_price_per_day, rental_price_per_week, 
                     rental_price_per_month, address, city, state, 
-                    country, postal_code, payment_channel_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                    country, postal_code, payment_channel_id, upload_fee, product_type, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ");
 
             $stmt->execute([
@@ -108,7 +112,9 @@ class RentalProductModel {
                 $data['state'],
                 $data['country'],
                 $data['postal_code'],
-                $data['payment_channel_id']
+                $data['payment_channel_id'],
+                $verification_fee,
+                'rental' // product_type
             ]);
 
             $product_id = $this->pdo->lastInsertId();
@@ -121,19 +127,51 @@ class RentalProductModel {
             return ['success' => false, 'error' => 'Failed to add rental product'];
         }
     }
+    
+    /**
+     * Calculate average rental price from day, week, and month prices
+     */
+    private function calculateAverageRentalPrice($day_price, $week_price, $month_price) {
+        $valid_prices = [];
+        
+        if ($day_price > 0) {
+            $valid_prices[] = $day_price;
+        }
+        
+        if ($week_price > 0) {
+            // Convert weekly price to daily equivalent
+            $valid_prices[] = $week_price / 7;
+        }
+        
+        if ($month_price > 0) {
+            // Convert monthly price to daily equivalent (assuming 30 days)
+            $valid_prices[] = $month_price / 30;
+        }
+        
+        if (count($valid_prices) > 0) {
+            return array_sum($valid_prices) / count($valid_prices);
+        }
+        
+        // If no valid prices, return 0 or a default value
+        return 0;
+    }
 
     /**
      * Update a rental product
      */
     public function updateRentalProduct($data, $product_id, $seller_id) {
         try {
+            // Calculate average of rental prices and verification fee (0.5% of average)
+            $avg_rental_price = ($data['rental_price_per_day'] + $data['rental_price_per_week'] + $data['rental_price_per_month']) / 3;
+            $verification_fee = $avg_rental_price * 0.005; // 0.5% of average rental price
+            
             $stmt = $this->pdo->prepare("
                 UPDATE products SET 
                     name = ?, description = ?, category_id = ?, stock = ?, 
                     rental_price_per_day = ?, rental_price_per_week = ?, 
                     rental_price_per_month = ?, address = ?, city = ?, 
                     state = ?, country = ?, postal_code = ?, 
-                    payment_channel_id = ?, updated_at = NOW()
+                    payment_channel_id = ?, upload_fee = ?, product_type = ?, updated_at = NOW()
                 WHERE id = ? AND seller_id = ?
             ");
 
@@ -151,6 +189,8 @@ class RentalProductModel {
                 $data['country'],
                 $data['postal_code'],
                 $data['payment_channel_id'],
+                $verification_fee,
+                'rental', // product_type
                 $product_id,
                 $seller_id
             ]);
@@ -182,8 +222,9 @@ class RentalProductModel {
     public function getRentalProductById($product_id, $seller_id) {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT p.*, pc.name as payment_channel_name 
+                SELECT p.*, c.name as category_name, pc.name as payment_channel_name 
                 FROM products p 
+                LEFT JOIN categories c ON p.category_id = c.id
                 LEFT JOIN payment_channels pc ON p.payment_channel_id = pc.id 
                 WHERE p.id = ? AND p.seller_id = ? AND p.is_rental = 1
             ");
