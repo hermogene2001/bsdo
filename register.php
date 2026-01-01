@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
     
     // Determine status based on role
-    $status = ($role === 'client') ? 'active' : 'pending';
+    $status = ($role === 'client') ? 'active' : 'active';
     
     // Insert user into database
     $stmt = $pdo->prepare("INSERT INTO users (first_name, last_name, email, password, role, store_name, business_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");

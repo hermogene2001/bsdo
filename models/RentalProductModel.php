@@ -92,9 +92,10 @@ class RentalProductModel {
                 INSERT INTO products (
                     seller_id, name, description, category_id, stock, 
                     is_rental, rental_price_per_day, rental_price_per_week, 
-                    rental_price_per_month, address, city, state, 
-                    country, postal_code, payment_channel_id, upload_fee, product_type, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                    rental_price_per_month, min_rental_days, max_rental_days, security_deposit,
+                    address, city, state, country, postal_code, payment_channel_id, 
+                    image_url, image_gallery, upload_fee,price, product_type, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ");
 
             $stmt->execute([
@@ -107,13 +108,19 @@ class RentalProductModel {
                 $data['rental_price_per_day'],
                 $data['rental_price_per_week'],
                 $data['rental_price_per_month'],
+                $data['min_rental_days'] ?? 1,
+                $data['max_rental_days'] ?? 30,
+                $data['security_deposit'] ?? 0,
                 $data['address'],
                 $data['city'],
                 $data['state'],
                 $data['country'],
                 $data['postal_code'],
                 $data['payment_channel_id'],
+                $data['image_url'] ?? '',
+                $data['image_gallery'] ?? '',
                 $verification_fee,
+                $avg_rental_price,
                 'rental' // product_type
             ]);
 
@@ -169,9 +176,9 @@ class RentalProductModel {
                 UPDATE products SET 
                     name = ?, description = ?, category_id = ?, stock = ?, 
                     rental_price_per_day = ?, rental_price_per_week = ?, 
-                    rental_price_per_month = ?, address = ?, city = ?, 
-                    state = ?, country = ?, postal_code = ?, 
-                    payment_channel_id = ?, upload_fee = ?, product_type = ?, updated_at = NOW()
+                    rental_price_per_month = ?, min_rental_days = ?, max_rental_days = ?, security_deposit = ?,
+                    address = ?, city = ?, state = ?, country = ?, postal_code = ?, 
+                    payment_channel_id = ?, image_url = ?, image_gallery = ?, upload_fee = ?, product_type = ?, updated_at = NOW()
                 WHERE id = ? AND seller_id = ?
             ");
 
@@ -183,12 +190,17 @@ class RentalProductModel {
                 $data['rental_price_per_day'],
                 $data['rental_price_per_week'],
                 $data['rental_price_per_month'],
+                $data['min_rental_days'] ?? 1,
+                $data['max_rental_days'] ?? 30,
+                $data['security_deposit'] ?? 0,
                 $data['address'],
                 $data['city'],
                 $data['state'],
                 $data['country'],
                 $data['postal_code'],
                 $data['payment_channel_id'],
+                $data['image_url'] ?? '',
+                $data['image_gallery'] ?? '',
                 $verification_fee,
                 'rental', // product_type
                 $product_id,

@@ -64,6 +64,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $rental_price_per_week = SecurityUtils::sanitizeFloat($_POST['rental_price_per_week'], 0);
                     $rental_price_per_month = SecurityUtils::sanitizeFloat($_POST['rental_price_per_month'], 0);
                     
+                    $min_rental_days = SecurityUtils::sanitizeInt($_POST['min_rental_days'], 1);
+                    $max_rental_days = SecurityUtils::sanitizeInt($_POST['max_rental_days'], $min_rental_days);
+                    $security_deposit = SecurityUtils::sanitizeFloat($_POST['security_deposit'], 0);
+                    
                     // Validate required fields
                     if (empty($name) || empty($description) || !$category_id || !$payment_channel_id) {
                         $error_message = "Please fill in all required fields.";
@@ -92,10 +96,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'postal_code' => $postal_code,
                         'rental_price_per_day' => $rental_price_per_day,
                         'rental_price_per_week' => $rental_price_per_week,
-                        'rental_price_per_month' => $rental_price_per_month
+                        'rental_price_per_month' => $rental_price_per_month,
+                        'min_rental_days' => $min_rental_days,
+                        'max_rental_days' => $max_rental_days,
+                        'security_deposit' => $security_deposit
                     ];
                     
-                    // Add rental product
+                    // Handle image upload
+                    $image_url = '';
+                    if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] == 0) {
+                        $upload_result = uploadProductImage($_FILES['product_image']);
+                        if ($upload_result['success']) {
+                            $image_url = $upload_result['path'];
+                        } else {
+                            $error_message = $upload_result['error'];
+                            Logger::error('Failed to upload product image', ['error' => $upload_result['error'], 'user_id' => $seller_id]);
+                            break;
+                        }
+                    }
+                    
+                    // Handle gallery images upload
+                    $image_gallery = '';
+                    if (isset($_FILES['gallery_images']) && !empty($_FILES['gallery_images']['name'][0])) {
+                        $gallery_paths = [];
+                        $file_count = count($_FILES['gallery_images']['name']);
+                        for ($i = 0; $i < $file_count; $i++) {
+                            if ($_FILES['gallery_images']['error'][$i] == 0) {
+                                $_FILES['temp_gallery'] = [
+                                    'name' => $_FILES['gallery_images']['name'][$i],
+                                    'type' => $_FILES['gallery_images']['type'][$i],
+                                    'tmp_name' => $_FILES['gallery_images']['tmp_name'][$i],
+                                    'error' => $_FILES['gallery_images']['error'][$i],
+                                    'size' => $_FILES['gallery_images']['size'][$i],
+                                ];
+                                $upload_result = uploadProductImage($_FILES['temp_gallery']);
+                                if ($upload_result['success']) {
+                                    $gallery_paths[] = $upload_result['path'];
+                                }
+                            }
+                        }
+                        if (!empty($gallery_paths)) {
+                            $image_gallery = json_encode($gallery_paths);
+                        }
+                    }
+                    
+                    // Add rental product with image data
+                    $data['image_url'] = $image_url;
+                    $data['image_gallery'] = $image_gallery;
                     $result = $rentalModel->addRentalProduct($data, $seller_id);
                     
                     if ($result['success']) {
