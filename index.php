@@ -777,6 +777,29 @@ function getCategoryIcon($categoryName) {
         </div>
     </section>
 
+    <!-- Mobile App Download Section -->
+    <section id="app-download" class="py-5 bg-primary text-white">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <h2 class="mb-3">Download Our Mobile App</h2>
+                    <p class="lead">Take BSDO Sale with you wherever you go! Shop, sell, and connect with live streaming on your mobile device.</p>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a href="android-app/BSDOSale/app/build/outputs/apk/debug/app-debug.apk" class="btn btn-light btn-lg" download>
+                            <i class="fab fa-android me-2"></i>Download for Android
+                        </a>
+                        <a href="ios-app/BSDOSale-iOS.zip" class="btn btn-light btn-lg" download>
+                            <i class="fab fa-apple me-2"></i>Download for iOS
+                        </a>
+                    </div>
+                </div>
+                <div class="col-lg-6 text-center">
+                    <i class="fas fa-mobile-alt fa-8x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Login Modal -->
     <div class="modal fade" id="loginModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">

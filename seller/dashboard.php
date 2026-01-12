@@ -502,6 +502,30 @@ function formatCurrency($amount) {
                     </div>
                 </div>
 
+                <!-- Mobile App Download Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <h4 class="card-title mb-2"><i class="fas fa-mobile-alt me-2"></i>Download Our Mobile App</h4>
+                                        <p class="card-text mb-0">Manage your store on-the-go! Upload products, check orders, and go live from anywhere.</p>
+                                    </div>
+                                    <div class="col-md-4 text-md-end">
+                                        <a href="../android-app/BSDOSale/app/build/outputs/apk/debug/app-debug.apk" class="btn btn-light me-2" download>
+                                            <i class="fab fa-android me-2"></i>Android
+                                        </a>
+                                        <a href="../ios-app/BSDOSale-iOS.zip" class="btn btn-light" download>
+                                            <i class="fab fa-apple me-2"></i>iOS
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row mb-4">
                     <div class="col-md-3 mb-3">
                         <div class="stats-card">
