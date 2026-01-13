@@ -1,15 +1,24 @@
 workflows:
-  react-native-android:
-    name: React Native Android
+  react-native:
+    name: React Native
     max_build_duration: 120
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic
     environment:
       android_signing:
         - keystore_reference
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: io.codemagic.sample.reactnative
       groups:
         - google_play
       vars:
         PACKAGE_NAME: "io.codemagic.sample.reactnative"
+        BUNDLE_ID: "io.codemagic.sample.reactnative"
+        XCODE_WORKSPACE: "CodemagicSample.xcworkspace" # <-- Put the name of your Xcode workspace here
+        XCODE_SCHEME: "CodemagicSample" # <-- Put the name of your Xcode scheme here
+        APP_STORE_APPLE_ID: 1555555551
     scripts:
       - name: Set Android SDK location
         script: | 
@@ -23,6 +32,16 @@ workflows:
       - name: Set up app/build.gradle
         script: |
           mv ./support-files/build.gradle android/app
+      - name: Set Info.plist values
+        script: | 
+          PLIST=$CM_BUILD_DIR/$XCODE_SCHEME/Info.plist
+          PLIST_BUDDY=/usr/libexec/PlistBuddy
+          $PLIST_BUDDY -c "Add :ITSAppUsesNonExemptEncryption bool false" $PLIST
+      - name: Install CocoaPods dependencies
+        script: | 
+          cd ios && pod install
+      - name: Set up provisioning profiles settings on Xcode project
+        script: xcode-project use-profiles
       - name: Build Android release
         script: | 
           LATEST_GOOGLE_PLAY_BUILD_NUMBER=$(google-play get-latest-build-number --package-name "$PACKAGE_NAME")
@@ -36,54 +55,7 @@ workflows:
           ./gradlew bundleRelease \
             -PversionCode=$UPDATED_BUILD_NUMBER \
             -PversionName=1.0.$UPDATED_BUILD_NUMBER
-    artifacts:
-      - android/app/build/outputs/**/*.aab
-    publishing:
-      email:
-        recipients:
-          - user_1@example.com
-          - user_2@example.com
-        notify:
-          success: true
-          failure: false
-      google_play:
-        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal
-        submit_as_draft: true
-
-  react-native-ios:
-    name: React Native iOS
-    max_build_duration: 120
-    instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: codemagic
-    environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: io.codemagic.sample.reactnative
-      vars:
-        BUNDLE_ID: "io.codemagic.sample.reactnative"
-        XCODE_WORKSPACE: "CodemagicSample.xcworkspace" # <-- Put the name of your Xcode workspace here
-        XCODE_SCHEME: "CodemagicSample" # <-- Put the name of your Xcode scheme here
-        APP_STORE_APPLE_ID: 1555555551
-    scripts:
-      - name: Install npm dependencies
-        script: | 
-          npm install
-      - name: Run Expo Prebuild
-        script: | 
-          npx expo prebuild
-      - name: Set Info.plist values
-        script: | 
-          PLIST=$CM_BUILD_DIR/$XCODE_SCHEME/Info.plist
-          PLIST_BUDDY=/usr/libexec/PlistBuddy
-          $PLIST_BUDDY -c "Add :ITSAppUsesNonExemptEncryption bool false" $PLIST
-      - name: Install CocoaPods dependencies
-        script: | 
-          cd ios && pod install
-      - name: Set up provisioning profiles settings on Xcode project
-        script: xcode-project use-profiles
-      - name: Increment build number
+      - name: Increment build number for iOS
         script: | 
           cd $CM_BUILD_DIR/ios
           LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID")
@@ -94,6 +66,7 @@ workflows:
             --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
             --scheme "$XCODE_SCHEME"
     artifacts:
+      - android/app/build/outputs/**/*.aab
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
@@ -106,6 +79,10 @@ workflows:
         notify:
           success: true
           failure: false
+      google_play:
+        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
       app_store_connect:
         auth: integration
         # Configuration related to TestFlight (optional)
