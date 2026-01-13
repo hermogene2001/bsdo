@@ -5,7 +5,7 @@ workflows:
     instance_type: mac_mini_m2
     integrations:
       app_store_connect: codemagic
-    environment:
+    environment: 
       android_signing:
         - keystore_reference
       ios_signing:
